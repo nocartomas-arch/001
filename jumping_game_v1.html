@@ -1,281 +1,286 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Skákací hra</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Skákací hra</title>
+<style>
+  /* --- Reset + mobilní chování --- */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  /* iOS: žádné přetahování / odskočení stránky */
+  html, body { overscroll-behavior: none; }
+  body {
+    font-family: system-ui, -apple-system, Arial, sans-serif;
+    background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+    color: #222;
+    overflow: hidden; /* kritické – nic se nesmí posouvat */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none; /* zakáže horizont/vertikální gesta nad tělem */
+  }
 
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100svh;
-      background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
-      font-family: Arial, sans-serif;
-      -webkit-tap-highlight-color: transparent; /* hezčí tap na iOS */
-    }
+  /* Kontejner přes celou obrazovku, bez scrollu */
+  #gameContainer {
+    position: fixed;
+    inset: 0;               /* top/right/bottom/left: 0 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+  }
 
-    #gameContainer {
-      text-align: center;
-      width: min(94vw, 1000px);
-      padding: clamp(8px, 2vw, 16px);
-    }
+  h1 {
+    font-size: clamp(18px, 3.5vw, 28px);
+    text-align: center;
+  }
+  #score {
+    font-weight: 700;
+    font-size: clamp(16px, 3vw, 22px);
+  }
 
-    h1 {
-      font-size: clamp(20px, 4.8vw, 42px);
-      margin-bottom: 10px;
-    }
+  /* Plátno se bude řídit JS velikostí; zde jen vzhled */
+  #gameCanvas {
+    display: block;
+    border: 3px solid #333;
+    background: #9fd;
+    border-radius: 10px;
+    /* zabrání width>viewport */
+    max-width: 100%;
+  }
 
-    #score {
-      font-size: clamp(16px, 3.6vw, 24px);
-      font-weight: bold;
-      color: #333;
-      margin: 8px 0 10px;
-    }
-
-    /* >>> Hlavní změna: plně responzivní canvas */
-    #gameCanvas {
-      display: block;
-      margin: 0 auto;
-      border: 3px solid #333;
-      background: linear-gradient(to bottom, #87CEEB 0%, #90EE90 80%, #8B7355 100%);
-      max-width: 100%;
-      width: 100%;
-      aspect-ratio: 2 / 1;   /* zachová správný poměr 800x400 */
-      height: auto;
-      touch-action: manipulation;  /* méně delaye na mobilech */
-    }
-
-    #instructions {
-      font-size: clamp(13px, 3.2vw, 18px);
-      color: #555;
-      margin: 10px 0;
-    }
-
-    #gameOver {
-      display: none;
-      font-size: clamp(22px, 5.6vw, 32px);
-      font-weight: bold;
-      color: #ff0000;
-      margin: 10px 0;
-    }
-
-    button {
-      font-size: clamp(14px, 3.6vw, 18px);
-      padding: 10px 20px;
-      margin: 10px;
-      cursor: pointer;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 8px;
-    }
-    button:hover { background: #45a049; }
-  </style>
+  #instructions {
+    font-size: clamp(12px, 2.6vw, 16px);
+    color: #555;
+  }
+  #gameOver {
+    display: none;
+    font-weight: 900;
+    color: #e60000;
+    text-align: center;
+  }
+  button {
+    display: none;
+    font-size: clamp(14px, 3.2vw, 18px);
+    padding: 10px 20px;
+    border: 0;
+    border-radius: 10px;
+    background: #4CAF50;
+    color: #fff;
+  }
+  button:active { transform: scale(.98); }
+</style>
 </head>
 <body>
   <div id="gameContainer">
     <h1>🎮 Skákací hra 🎮</h1>
     <div id="score">Skóre: 0</div>
-
-    <!-- Canvas drží „logických“ 800x400, vizualně se škáluje přes CSS -->
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
-
-    <div id="instructions">Stiskni MEZERNÍK pro skok</div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="instructions">Stiskni MEZERNÍK nebo klepni pro skok</div>
     <div id="gameOver">KONEC HRY!</div>
-    <button id="restartBtn" style="display:none;">Restart</button>
+    <button id="restartBtn">Restart</button>
   </div>
 
-  <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const scoreEl = document.getElementById('score');
-    const gameOverEl = document.getElementById('gameOver');
-    const restartBtn = document.getElementById('restartBtn');
-    const instructions = document.getElementById('instructions');
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx     = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const gameOverEl = document.getElementById('gameOver');
+  const restartBtn = document.getElementById('restartBtn');
+  const instructions = document.getElementById('instructions');
 
-    // Na mobilech změň instrukci
-    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (isTouch) instructions.textContent = 'Klepni pro skok';
+  let score = 0;
+  let gameRunning = true;
+  let frameCount = 0;
 
-    let score = 0;
-    let gameRunning = true;
-    let frameCount = 0;
+  // Poměr stran hry (šířka : výška)
+  const ASPECT = 2; // 2:1 (původně 800x400)
 
-    // Logické rozměry (odpovídají width/height canvasu)
-    const BASE_W = 800;
-    const BASE_H = 400;
-    const GROUND_TOP = 350;  // pozice horní hrany země
-    const GROUND_H = 50;
+  // Rozměry logické (herní) i fyzické (retina)
+  function resizeCanvas() {
+    // Reálná výška viewportu i na iOS (bez spodní lišty)
+    const vh = (window.visualViewport && window.visualViewport.height) 
+                ? window.visualViewport.height 
+                : window.innerHeight;
+    const vw = window.innerWidth;
 
-    // Panáček
-    const player = {
-      x: 100,
-      y: 300,
-      width: 40,
-      height: 50,
-      velocityY: 0,
-      jumping: false,
-      gravity: 0.6,
-      jumpPower: -13
-    };
+    // Rezervuj trochu místa na titul a texty pod plátnem
+    const headerH = 56; // zhruba výška h1 + skóre
+    const footerH = 72; // instrukce / konec / tlačítko
 
-    // Překážky
-    const obstacles = [];
-    const obstacleTypes = ['🐕', '🌵', '👾', '🦖', '🌳', '🐍', '🦂', '🍄'];
+    // max dostupná výška plátna
+    const maxH = Math.max(160, Math.min(vh - headerH - footerH, vh * 0.7));
+    // šířka podle viewportu
+    const maxW = vw - 16; // drobný padding
 
-    function createObstacle() {
-      const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
-      obstacles.push({
-        x: BASE_W,
-        y: GROUND_TOP - 40 + 0, // sedí na zemi
-        width: 40,
-        height: 40,
-        speed: 5,
-        emoji: type
-      });
+    // dopočítej podle poměru stran tak, aby se vešlo
+    let cssH = maxH;
+    let cssW = cssH * ASPECT;
+    if (cssW > maxW) {
+      cssW = maxW;
+      cssH = cssW / ASPECT;
     }
 
-    function drawPlayer() {
-      ctx.font = '50px Arial';
-      ctx.fillText('🏃', player.x, player.y + player.height);
-    }
+    // HiDPI ostrost
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
 
-    function drawObstacles() {
-      ctx.font = '40px Arial';
-      obstacles.forEach(obs => {
-        ctx.fillText(obs.emoji, obs.x, obs.y + obs.height);
-      });
-    }
+    canvas.style.width  = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
+    canvas.width  = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // kresli v CSS souřadnicích
 
-    function drawGround() {
-      // Zem
-      ctx.fillStyle = '#8B7355';
-      ctx.fillRect(0, GROUND_TOP, BASE_W, GROUND_H);
+    // škálování UI podle velikosti plátna
+    gameOverEl.style.fontSize = Math.max(18, Math.floor(cssH * 0.12)) + 'px';
+  }
 
-      // Tráva
-      ctx.fillStyle = '#90EE90';
-      for (let i = 0; i < BASE_W; i += 20) {
-        ctx.fillRect(i, GROUND_TOP - 5, 10, 5);
-      }
-    }
+  // Hráč
+  const player = {
+    x: 100, y: 300, width: 40, height: 50,
+    velocityY: 0, jumping: false, gravity: 0.6, jumpPower: -13
+  };
 
-    function update() {
-      if (!gameRunning) return;
+  // Překážky
+  const obstacles = [];
+  const obstacleTypes = ['🐕','🌵','👾','🦖','🌳','🐍','🦂','🍄'];
 
-      frameCount++;
+  function createObstacle() {
+    const type = obstacleTypes[Math.floor(Math.random()*obstacleTypes.length)];
+    // Umístění podle aktuální výšky plátna
+    const groundY = canvas.height / (window.devicePixelRatio||1) - 50; // 50 = výška „hlíny“
+    obstacles.push({
+      x: canvas.width / (window.devicePixelRatio||1),
+      y: groundY - 40, width: 40, height: 40, speed: 5, emoji: type
+    });
+  }
 
-      // Gravitace
-      player.velocityY += player.gravity;
-      player.y += player.velocityY;
+  function drawPlayer() {
+    ctx.font = '50px Arial';
+    ctx.fillText('🏃', player.x, player.y + player.height);
+  }
+  function drawObstacles() {
+    ctx.font = '40px Arial';
+    obstacles.forEach(o => ctx.fillText(o.emoji, o.x, o.y + o.height));
+  }
+  function drawGround() {
+    const cssW = canvas.width  / (window.devicePixelRatio||1);
+    const cssH = canvas.height / (window.devicePixelRatio||1);
+    const groundTop = cssH - 50;
 
-      // Kolize se zemí
-      if (player.y >= GROUND_TOP - player.height) {
-        player.y = GROUND_TOP - player.height;
-        player.velocityY = 0;
-        player.jumping = false;
-      }
+    ctx.fillStyle = '#8B7355';
+    ctx.fillRect(0, groundTop, cssW, 50);
+    ctx.fillStyle = '#90EE90';
+    for (let i=0;i<cssW;i+=20) ctx.fillRect(i, groundTop-5, 10, 5);
+  }
 
-      // Vytvoření nové překážky
-      if (frameCount % 100 === 0) {
-        createObstacle();
-        score++;
-        scoreEl.textContent = `Skóre: ${score}`;
-      }
+  function update() {
+    if (!gameRunning) return;
+    frameCount++;
 
-      // Aktualizace překážek
-      for (let i = obstacles.length - 1; i >= 0; i--) {
-        const o = obstacles[i];
-        o.x -= o.speed;
+    // přepočet „země“ dle aktuální výšky plátna
+    const cssH = canvas.height / (window.devicePixelRatio||1);
+    const groundY = cssH - 50;
 
-        // Detekce kolize
-        if (
-          player.x < o.x + o.width &&
-          player.x + player.width > o.x &&
-          player.y < o.y + o.height &&
-          player.y + player.height > o.y
-        ) {
-          endGame();
-        }
-
-        // Mimo obraz
-        if (o.x + o.width < 0) obstacles.splice(i, 1);
-      }
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, BASE_W, BASE_H);
-
-      // Obloha + louka + zem
-      const gradient = ctx.createLinearGradient(0, 0, 0, BASE_H);
-      gradient.addColorStop(0, '#87CEEB');
-      gradient.addColorStop(0.8, '#90EE90');
-      gradient.addColorStop(1, '#8B7355');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, BASE_W, BASE_H);
-
-      drawGround();
-      drawPlayer();
-      drawObstacles();
-    }
-
-    function gameLoop() {
-      update();
-      draw();
-      if (gameRunning) requestAnimationFrame(gameLoop);
-    }
-
-    function jump() {
-      if (!player.jumping && player.y >= GROUND_TOP - player.height) {
-        player.velocityY = player.jumpPower;
-        player.jumping = true;
-      }
-    }
-
-    function endGame() {
-      gameRunning = false;
-      gameOverEl.style.display = 'block';
-      restartBtn.style.display = 'inline-block';
-    }
-
-    function restart() {
-      score = 0;
-      frameCount = 0;
-      obstacles.length = 0;
-      player.y = GROUND_TOP - player.height;
+    player.velocityY += player.gravity;
+    player.y += player.velocityY;
+    if (player.y >= groundY - player.height) {
+      player.y = groundY - player.height;
       player.velocityY = 0;
       player.jumping = false;
-      gameRunning = true;
-      gameOverEl.style.display = 'none';
-      restartBtn.style.display = 'none';
-      scoreEl.textContent = 'Skóre: 0';
-      gameLoop();
     }
 
-    // Ovládání
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && gameRunning) {
-        e.preventDefault();
-        jump();
+    if (frameCount % 100 === 0) {
+      createObstacle();
+      score++;
+      scoreEl.textContent = `Skóre: ${score}`;
+    }
+
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      obstacles[i].x -= obstacles[i].speed;
+
+      // kolize AABB
+      const o = obstacles[i];
+      if (player.x < o.x + o.width &&
+          player.x + player.width > o.x &&
+          player.y < o.y + o.height &&
+          player.y + player.height > o.y) {
+        endGame();
       }
-    });
+      if (o.x + o.width < 0) obstacles.splice(i, 1);
+    }
+  }
 
-    // Kliknutí i dotyk
-    const jumpHandler = (e) => {
-      if (gameRunning) {
-        e.preventDefault();
-        jump();
-      }
-    };
-    canvas.addEventListener('click', jumpHandler, { passive: false });
-    canvas.addEventListener('touchstart', jumpHandler, { passive: false });
+  function draw() {
+    const cssW = canvas.width  / (window.devicePixelRatio||1);
+    const cssH = canvas.height / (window.devicePixelRatio||1);
 
-    restartBtn.addEventListener('click', restart);
+    ctx.clearRect(0,0,cssW,cssH);
 
-    // Start hry
-    gameLoop();
-  </script>
+    const g = ctx.createLinearGradient(0,0,0,cssH);
+    g.addColorStop(0,'#87CEEB'); g.addColorStop(.8,'#90EE90'); g.addColorStop(1,'#8B7355');
+    ctx.fillStyle = g; ctx.fillRect(0,0,cssW,cssH);
+
+    drawGround();
+    drawPlayer();
+    drawObstacles();
+  }
+
+  function loop() {
+    update(); draw();
+    if (gameRunning) requestAnimationFrame(loop);
+  }
+
+  function jump() {
+    if (!gameRunning) return;
+    if (!player.jumping) {
+      player.velocityY = player.jumpPower;
+      player.jumping = true;
+    }
+  }
+
+  function endGame() {
+    gameRunning = false;
+    gameOverEl.style.display = 'block';
+    restartBtn.style.display = 'inline-block';
+  }
+  function restart() {
+    score = 0; frameCount = 0; obstacles.length = 0;
+    const cssH = canvas.height / (window.devicePixelRatio||1);
+    player.y = cssH - 50 - player.height;
+    player.velocityY = 0; player.jumping = false;
+    gameRunning = true;
+    gameOverEl.style.display = 'none';
+    restartBtn.style.display = 'none';
+    scoreEl.textContent = 'Skóre: 0';
+    loop();
+  }
+
+  // Ovládání
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); jump(); }
+    if (!gameRunning && e.code === 'Enter') restart();
+  }, { passive:false });
+
+  // Doteky přímo nad plátnem (zabrání scrollu)
+  ['touchstart','pointerdown','mousedown','click'].forEach(ev => {
+    canvas.addEventListener(ev, e => { e.preventDefault(); jump(); }, { passive:false });
+  });
+
+  restartBtn.addEventListener('click', restart);
+
+  // Reakce na změnu velikosti / orientace (také iOS posun lišt)
+  window.addEventListener('resize', resizeCanvas);
+  window.visualViewport?.addEventListener('resize', resizeCanvas);
+
+  // Start
+  resizeCanvas();
+  // umísti hráče na „zem“
+  player.y = (canvas.height / (window.devicePixelRatio||1)) - 50 - player.height;
+  loop();
+})();
+</script>
 </body>
 </html>
