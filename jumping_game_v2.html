@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skákací hra - Pokročilá</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #gameContainer {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .stat {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            min-width: 150px;
+        }
+        #gameCanvas {
+            border: 4px solid #667eea;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 70%, #90EE90 85%, #8B7355 100%);
+            display: block;
+            margin: 0 auto;
+            border-radius: 10px;
+        }
+        #instructions {
+            font-size: 16px;
+            color: #555;
+            margin: 15px 0;
+        }
+        #gameOver {
+            display: none;
+            font-size: 36px;
+            font-weight: bold;
+            color: #ff0000;
+            margin: 15px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .btn {
+            font-size: 18px;
+            padding: 12px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        #pauseBtn {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+        }
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 10;
+        }
+        .difficulty {
+            margin: 20px 0;
+        }
+        .difficulty button {
+            margin: 5px;
+        }
+        #highScore {
+            font-size: 14px;
+            color: #764ba2;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🎮 SUPER SKÁKACÍ HRA 🎮</h1>
+        <div id="stats">
+            <div class="stat">Skóre: <span id="score">0</span></div>
+            <div class="stat">Úroveň: <span id="level">1</span></div>
+            <div class="stat">Životy: <span id="lives">❤️❤️❤️</span></div>
+        </div>
+        <div id="highScore">Nejvyšší skóre: <span id="highScoreValue">0</span></div>
+        <canvas id="gameCanvas" width="900" height="450"></canvas>
+        <div id="instructions">⌨️ MEZERNÍK nebo ŠIPKA NAHORU pro skok | 🖱️ Klikni pro skok</div>
+        <div id="gameOver">🎯 KONEC HRY! 🎯</div>
+        <button id="pauseBtn" class="btn">⏸️ Pauza</button>
+        <button id="restartBtn" class="btn" style="display:none;">🔄 Restart</button>
+        
+        <div id="startScreen" style="display:none;">
+            <h2 style="color: #667eea; margin-bottom: 20px;">Vyber obtížnost:</h2>
+            <div class="difficulty">
+                <button class="btn" onclick="startGame('easy')">😊 Snadná</button>
+                <button class="btn" onclick="startGame('medium')">😐 Střední</button>
+                <button class="btn" onclick="startGame('hard')">😰 Těžká</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const levelEl = document.getElementById('level');
+        const livesEl = document.getElementById('lives');
+        const gameOverEl = document.getElementById('gameOver');
+        const restartBtn = document.getElementById('restartBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const highScoreEl = document.getElementById('highScoreValue');
+
+        let score = 0;
+        let level = 1;
+        let lives = 3;
+        let gameRunning = true;
+        let gamePaused = false;
+        let frameCount = 0;
+        let difficulty = 'medium';
+        let highScore = localStorage.getItem('highScore') || 0;
+        highScoreEl.textContent = highScore;
+
+        const difficultySettings = {
+            easy: { speed: 4, spawnRate: 120, jumpPower: -14 },
+            medium: { speed: 5, spawnRate: 100, jumpPower: -13 },
+            hard: { speed: 7, spawnRate: 80, jumpPower: -12 }
+        };
+
+        // Panáček
+        const player = {
+            x: 100,
+            y: 350,
+            width: 40,
+            height: 50,
+            velocityY: 0,
+            jumping: false,
+            gravity: 0.6,
+            jumpPower: -13,
+            invincible: false,
+            invincibleTime: 0
+        };
+
+        // Mince
+        const coins = [];
+        
+        // Překážky
+        const obstacles = [];
+        const obstacleTypes = [
+            { emoji: '🐕', height: 40 },
+            { emoji: '🌵', height: 50 },
+            { emoji: '👾', height: 45 },
+            { emoji: '🦖', height: 55 },
+            { emoji: '🌳', height: 60 },
+            { emoji: '🐍', height: 30 },
+            { emoji: '🦂', height: 35 },
+            { emoji: '🍄', height: 40 },
+            { emoji: '🦇', height: 35 },
+            { emoji: '👻', height: 45 }
+        ];
+
+        // Mraky
+        const clouds = [];
+        for (let i = 0; i < 5; i++) {
+            clouds.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * 150,
+                speed: 0.5 + Math.random() * 0.5
+            });
+        }
+
+        function startGame(diff) {
+            difficulty = diff;
+            player.jumpPower = difficultySettings[diff].jumpPower;
+            document.getElementById('startScreen').style.display = 'none';
+        }
+
+        function createObstacle() {
+            const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+            obstacles.push({
+                x: canvas.width,
+                y: 400 - type.height,
+                width: 40,
+                height: type.height,
+                speed: difficultySettings[difficulty].speed + (level * 0.5),
+                emoji: type.emoji
+            });
+        }
+
+        function createCoin() {
+            coins.push({
+                x: canvas.width,
+                y: 250 + Math.random() * 100,
+                width: 30,
+                height: 30,
+                speed: difficultySettings[difficulty].speed,
+                collected: false
+            });
+        }
+
+        function drawPlayer() {
+            if (player.invincible && Math.floor(frameCount / 10) % 2 === 0) {
+                ctx.globalAlpha = 0.5;
+            }
+            ctx.font = '50px Arial';
+            ctx.fillText('🏃', player.x, player.y + player.height);
+            ctx.globalAlpha = 1;
+        }
+
+        function drawObstacles() {
+            ctx.font = '40px Arial';
+            obstacles.forEach(obs => {
+                ctx.fillText(obs.emoji, obs.x, obs.y + obs.height);
+            });
+        }
+
+        function drawCoins() {
+            ctx.font = '30px Arial';
+            coins.forEach(coin => {
+                if (!coin.collected) {
+                    ctx.fillText('💰', coin.x, coin.y + coin.height);
+                }
+            });
+        }
+
+        function drawClouds() {
+            ctx.font = '40px Arial';
+            clouds.forEach(cloud => {
+                ctx.fillText('☁️', cloud.x, cloud.y);
+                cloud.x -= cloud.speed;
+                if (cloud.x < -50) {
+                    cloud.x = canvas.width + 50;
+                    cloud.y = Math.random() * 150;
+                }
+            });
+        }
+
+        function drawGround() {
+            ctx.fillStyle = '#8B7355';
+            ctx.fillRect(0, 400, canvas.width, 50);
+            
+            ctx.fillStyle = '#90EE90';
+            for (let i = 0; i < canvas.width; i += 30) {
+                ctx.fillRect(i + (frameCount % 30), 395, 15, 5);
+            }
+        }
+
+        function update() {
+            if (!gameRunning || gamePaused) return;
+
+            frameCount++;
+            
+            if (player.invincible) {
+                player.invincibleTime--;
+                if (player.invincibleTime <= 0) {
+                    player.invincible = false;
+                }
+            }
+
+            player.velocityY += player.gravity;
+            player.y += player.velocityY;
+
+            if (player.y >= 350) {
+                player.y = 350;
+                player.velocityY = 0;
+                player.jumping = false;
+            }
+
+            const spawnRate = difficultySettings[difficulty].spawnRate - (level * 5);
+            if (frameCount % Math.max(spawnRate, 50) === 0) {
+                createObstacle();
+            }
+
+            if (frameCount % 150 === 0) {
+                createCoin();
+            }
+
+            // Zvýšení úrovně
+            if (score > 0 && score % 20 === 0 && score !== level * 20) {
+                level = Math.floor(score / 20) + 1;
+                levelEl.textContent = level;
+            }
+
+            // Aktualizace mincí
+            for (let i = coins.length - 1; i >= 0; i--) {
+                coins[i].x -= coins[i].speed;
+
+                if (!coins[i].collected &&
+                    player.x < coins[i].x + coins[i].width &&
+                    player.x + player.width > coins[i].x &&
+                    player.y < coins[i].y + coins[i].height &&
+                    player.y + player.height > coins[i].y
+                ) {
+                    coins[i].collected = true;
+                    score += 5;
+                    scoreEl.textContent = score;
+                }
+
+                if (coins[i].x + coins[i].width < 0) {
+                    coins.splice(i, 1);
+                }
+            }
+
+            // Aktualizace překážek
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].x -= obstacles[i].speed;
+
+                if (!player.invincible &&
+                    player.x < obstacles[i].x + obstacles[i].width - 10 &&
+                    player.x + player.width > obstacles[i].x + 10 &&
+                    player.y < obstacles[i].y + obstacles[i].height - 10 &&
+                    player.y + player.height > obstacles[i].y + 10
+                ) {
+                    lives--;
+                    updateLives();
+                    player.invincible = true;
+                    player.invincibleTime = 60;
+                    
+                    if (lives <= 0) {
+                        endGame();
+                    }
+                }
+
+                if (obstacles[i].x + obstacles[i].width < 0) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    scoreEl.textContent = score;
+                }
+            }
+        }
+
+        function updateLives() {
+            const hearts = ['❤️', '❤️', '❤️'];
+            livesEl.textContent = hearts.slice(0, lives).join('');
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.7, '#E0F6FF');
+            gradient.addColorStop(0.85, '#90EE90');
+            gradient.addColorStop(1, '#8B7355');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawClouds();
+            drawGround();
+            drawCoins();
+            drawPlayer();
+            drawObstacles();
+
+            if (gamePaused) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.font = '48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('⏸️ PAUZA', canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = 'left';
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function jump() {
+            if (!player.jumping && player.y >= 350 && !gamePaused) {
+                player.velocityY = player.jumpPower;
+                player.jumping = true;
+            }
+        }
+
+        function togglePause() {
+            gamePaused = !gamePaused;
+            pauseBtn.textContent = gamePaused ? '▶️ Pokračovat' : '⏸️ Pauza';
+        }
+
+        function endGame() {
+            gameRunning = false;
+            gameOverEl.style.display = 'block';
+            restartBtn.style.display = 'inline-block';
+            pauseBtn.style.display = 'none';
+            
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('highScore', highScore);
+                highScoreEl.textContent = highScore;
+            }
+        }
+
+        function restart() {
+            score = 0;
+            level = 1;
+            lives = 3;
+            frameCount = 0;
+            obstacles.length = 0;
+            coins.length = 0;
+            player.y = 350;
+            player.velocityY = 0;
+            player.jumping = false;
+            player.invincible = false;
+            gameRunning = true;
+            gamePaused = false;
+            gameOverEl.style.display = 'none';
+            restartBtn.style.display = 'none';
+            pauseBtn.style.display = 'inline-block';
+            pauseBtn.textContent = '⏸️ Pauza';
+            scoreEl.textContent = '0';
+            levelEl.textContent = '1';
+            updateLives();
+            gameLoop();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.code === 'Space' || e.code === 'ArrowUp') && gameRunning) {
+                e.preventDefault();
+                jump();
+            }
+            if (e.code === 'KeyP' || e.code === 'Escape') {
+                if (gameRunning) togglePause();
+            }
+        });
+
+        canvas.addEventListener('click', () => {
+            if (gameRunning) jump();
+        });
+
+        pauseBtn.addEventListener('click', togglePause);
+        restartBtn.addEventListener('click', restart);
+
+        gameLoop();
+    </script>
+</body>
+</html>
