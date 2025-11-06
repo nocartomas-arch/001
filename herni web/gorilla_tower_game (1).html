@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gorilla Tower - Skákačka</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+            text-align: center;
+        }
+        #gameCanvas {
+            border: 5px solid #8B4513;
+            background: linear-gradient(to bottom, #87CEEB 0%, #FFE4B5 100%);
+            display: block;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+        .stat-box {
+            background: rgba(139, 69, 19, 0.9);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 3px solid #FFD700;
+            color: #FFD700;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+        }
+        #gameOver, #victory {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(139, 69, 19, 0.95);
+            padding: 40px;
+            border: 5px solid #FFD700;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+        }
+        #gameOver h2 {
+            color: #ff0000;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px #000;
+        }
+        #victory h2 {
+            color: #FFD700;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px #000;
+            animation: bounce 1s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .final-stats {
+            color: #FFE4B5;
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #FFD700;
+            color: #8B4513;
+            border: 3px solid #8B4513;
+            border-radius: 10px;
+            font-weight: bold;
+            font-family: 'Arial Black', Arial, sans-serif;
+            box-shadow: 0 5px 0 #B8860B;
+            transition: all 0.1s;
+        }
+        button:hover {
+            background: #FFA500;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #B8860B;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #B8860B;
+        }
+        #instructions {
+            color: #8B4513;
+            font-size: 18px;
+            margin: 15px 0;
+            background: rgba(255, 228, 181, 0.9);
+            padding: 10px 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        #levelIndicator {
+            display: none;
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            color: #FFD700;
+            text-shadow: 4px 4px 8px #000;
+            animation: levelPulse 2s ease-in-out;
+            pointer-events: none;
+            z-index: 100;
+        }
+        @keyframes levelPulse {
+            0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="700"></canvas>
+        <div id="ui">
+            <div class="stat-box">🏆 <span id="score">0</span></div>
+            <div class="stat-box">🏢 PATRO: <span id="floor">0</span>/10</div>
+            <div class="stat-box">❤️ <span id="lives">3</span></div>
+        </div>
+        
+        <div id="levelIndicator"></div>
+        
+        <div id="gameOver">
+            <h2>💥 SPADL JSI! 💥</h2>
+            <div class="final-stats">
+                🏆 Skóre: <span id="finalScore">0</span><br>
+                🏢 Dosaženo patro: <span id="finalFloor">0</span>
+            </div>
+            <button onclick="restart()">🔄 ZKUSIT ZNOVU</button>
+            <button onclick="goHome()">🏠 MENU</button>
+        </div>
+        
+        <div id="victory">
+            <h2>🎉 ZACHRÁNIL JSI DŮM! 🎉</h2>
+            <div class="final-stats">
+                🏆 Finální skóre: <span id="victoryScore">0</span><br>
+                ⭐ Dokonalé!
+            </div>
+            <button onclick="restart()">🔄 HRÁT ZNOVU</button>
+            <button onclick="goHome()">🏠 MENU</button>
+        </div>
+        
+        <div id="instructions">⌨️ ŠIPKY nebo A/D = pohyb | MEZERNÍK = skok | Vyšplhej na vrchol!</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameRunning = true;
+        let score = 0;
+        let lives = 3;
+        let currentFloor = 0;
+        const maxFloors = 10;
+        
+        const player = {
+            x: 100,
+            y: 600,
+            width: 40,
+            height: 50,
+            velocityX: 0,
+            velocityY: 0,
+            speed: 6,
+            jumpPower: -18,
+            gravity: 0.7,
+            onPlatform: false,
+            direction: 1
+        };
+        
+        const platforms = [];
+        const obstacles = [];
+        const coins = [];
+        const particles = [];
+        
+        let cameraY = 0;
+        let gorilla = {
+            x: canvas.width / 2,
+            y: -200,
+            angry: false,
+            armAngle: 0
+        };
+        
+        const obstacleTypes = ['🔨', '🪛', '🔧', '⚡', '🔥'];
+        
+        function generateLevel() {
+            platforms.length = 0;
+            obstacles.length = 0;
+            coins.length = 0;
+            
+            // Startovní platforma
+            platforms.push({
+                x: 0,
+                y: 650,
+                width: canvas.width,
+                height: 50,
+                type: 'ground',
+                broken: false
+            });
+            
+            // Generování pater - OPRAVENO: Menší vertikální vzdálenosti
+            for (let floor = 1; floor <= maxFloors; floor++) {
+                const floorY = 650 - (floor * 200); // Změněno z 300 na 200
+                const numPlatforms = 3 + Math.floor(Math.random() * 2);
+                
+                // Celá podlaha pro každé druhé patro
+                if (floor % 3 === 0) {
+                    platforms.push({
+                        x: 0,
+                        y: floorY,
+                        width: canvas.width,
+                        height: 20,
+                        type: 'floor',
+                        floor: floor,
+                        broken: false
+                    });
+                    
+                    // Mince na plné podlaze
+                    for (let i = 0; i < 3; i++) {
+                        coins.push({
+                            x: 150 + i * 250,
+                            y: floorY - 50,
+                            size: 20,
+                            collected: false,
+                            bounce: 0
+                        });
+                    }
+                } else {
+                    // Rozdělené platformy - větší a lépe rozmístěné
+                    for (let i = 0; i < numPlatforms; i++) {
+                        const platWidth = 150 + Math.random() * 80;
+                        const spacing = (canvas.width - 60) / numPlatforms;
+                        const x = 30 + spacing * i + Math.random() * 40;
+                        const yOffset = Math.random() * 30; // Menší náhodný offset
+                        
+                        platforms.push({
+                            x: x,
+                            y: floorY + yOffset,
+                            width: platWidth,
+                            height: 20,
+                            type: Math.random() > 0.85 ? 'breakable' : 'normal',
+                            floor: floor,
+                            broken: false
+                        });
+                        
+                        // Mince na platformách
+                        if (Math.random() > 0.4) {
+                            coins.push({
+                                x: x + platWidth / 2,
+                                y: floorY + yOffset - 50,
+                                size: 20,
+                                collected: false,
+                                bounce: 0
+                            });
+                        }
+                    }
+                    
+                    // Překážky - méně od začátku
+                    if (floor > 3) {
+                        const numObstacles = Math.floor((floor - 3) / 2);
+                        for (let i = 0; i < numObstacles; i++) {
+                            obstacles.push({
+                                x: 60 + Math.random() * (canvas.width - 120),
+                                y: floorY - 80,
+                                width: 40,
+                                height: 40,
+                                type: obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)],
+                                direction: Math.random() > 0.5 ? 1 : -1,
+                                speed: 1.5 + Math.random() * 1.5,
+                                startX: 60,
+                                endX: canvas.width - 100
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        function createParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    velocityX: (Math.random() - 0.5) * 10,
+                    velocityY: (Math.random() - 0.5) * 10,
+                    size: Math.random() * 6 + 2,
+                    color: color,
+                    life: 40
+                });
+            }
+        }
+        
+        function drawBackground() {
+            const skyGradient = ctx.createLinearGradient(0, cameraY, 0, cameraY + canvas.height);
+            skyGradient.addColorStop(0, '#87CEEB');
+            skyGradient.addColorStop(1, '#E0F6FF');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, cameraY, canvas.width, canvas.height);
+            
+            // Mraky
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            for (let i = 0; i < 8; i++) {
+                const cloudY = cameraY + 50 + i * 100;
+                ctx.beginPath();
+                ctx.arc(100 + (i % 2) * 600, cloudY, 30, 0, Math.PI * 2);
+                ctx.arc(130 + (i % 2) * 600, cloudY, 40, 0, Math.PI * 2);
+                ctx.arc(160 + (i % 2) * 600, cloudY, 30, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        function drawBuilding() {
+            // Boční stěny budovy
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, cameraY, 30, canvas.height);
+            ctx.fillRect(canvas.width - 30, cameraY, 30, canvas.height);
+            
+            // Okna na budově
+            ctx.fillStyle = '#FFD700';
+            for (let y = Math.floor(cameraY / 100) * 100; y < cameraY + canvas.height; y += 100) {
+                ctx.fillRect(10, y + 20, 10, 15);
+                ctx.fillRect(canvas.width - 20, y + 20, 10, 15);
+                ctx.fillRect(10, y + 60, 10, 15);
+                ctx.fillRect(canvas.width - 20, y + 60, 10, 15);
+            }
+        }
+        
+        function drawGorilla() {
+            const screenY = gorilla.y - cameraY;
+            
+            if (screenY > -300 && screenY < canvas.height + 100) {
+                ctx.save();
+                ctx.translate(gorilla.x, screenY);
+                
+                // Tělo
+                ctx.fillStyle = '#4A4A4A';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 60, 80, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Hlava
+                ctx.fillStyle = '#3A3A3A';
+                ctx.beginPath();
+                ctx.arc(0, -60, 50, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Oči
+                ctx.fillStyle = gorilla.angry ? '#ff0000' : '#fff';
+                ctx.beginPath();
+                ctx.arc(-20, -70, 12, 0, Math.PI * 2);
+                ctx.arc(20, -70, 12, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(-20, -70, 6, 0, Math.PI * 2);
+                ctx.arc(20, -70, 6, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Ústa
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                if (gorilla.angry) {
+                    ctx.arc(0, -50, 15, 0, Math.PI);
+                } else {
+                    ctx.arc(0, -50, 15, Math.PI, Math.PI * 2);
+                }
+                ctx.stroke();
+                
+                // Paže (animované)
+                gorilla.armAngle += 0.1;
+                ctx.strokeStyle = '#4A4A4A';
+                ctx.lineWidth = 15;
+                ctx.beginPath();
+                ctx.moveTo(-40, -20);
+                ctx.lineTo(-60 + Math.sin(gorilla.armAngle) * 20, 30);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(40, -20);
+                ctx.lineTo(60 + Math.sin(gorilla.armAngle + Math.PI) * 20, 30);
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+        }
+        
+        function drawPlayer() {
+            const screenY = player.y - cameraY;
+            
+            ctx.save();
+            if (player.direction < 0) {
+                ctx.scale(-1, 1);
+                ctx.translate(-player.x * 2 - player.width, 0);
+            }
+            
+            // Tělo
+            ctx.fillStyle = '#FF6B6B';
+            ctx.fillRect(player.x, screenY + 20, player.width, 30);
+            
+            // Hlava
+            ctx.fillStyle = '#FFD1A4';
+            ctx.beginPath();
+            ctx.arc(player.x + player.width / 2, screenY + 15, 15, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Helma
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(player.x + player.width / 2, screenY + 10, 16, Math.PI, Math.PI * 2);
+            ctx.fill();
+            
+            // Oči
+            ctx.fillStyle = '#000';
+            ctx.fillRect(player.x + 15, screenY + 15, 3, 3);
+            ctx.fillRect(player.x + 25, screenY + 15, 3, 3);
+            
+            // Nohy
+            ctx.fillStyle = '#4169E1';
+            ctx.fillRect(player.x + 8, screenY + 50, 10, 10);
+            ctx.fillRect(player.x + 22, screenY + 50, 10, 10);
+            
+            ctx.restore();
+        }
+        
+        function drawPlatforms() {
+            platforms.forEach(plat => {
+                if (plat.broken) return;
+                
+                const screenY = plat.y - cameraY;
+                if (screenY > -50 && screenY < canvas.height + 50) {
+                    if (plat.type === 'ground' || plat.type === 'floor') {
+                        ctx.fillStyle = '#8B4513';
+                        ctx.fillRect(plat.x, screenY, plat.width, plat.height);
+                        
+                        // Textura
+                        ctx.strokeStyle = '#654321';
+                        ctx.lineWidth = 2;
+                        for (let i = 0; i < plat.width; i += 40) {
+                            ctx.beginPath();
+                            ctx.moveTo(plat.x + i, screenY);
+                            ctx.lineTo(plat.x + i, screenY + plat.height);
+                            ctx.stroke();
+                        }
+                    } else {
+                        ctx.fillStyle = plat.type === 'breakable' ? '#CD853F' : '#D2691E';
+                        ctx.fillRect(plat.x, screenY, plat.width, plat.height);
+                        
+                        // Okraj
+                        ctx.strokeStyle = '#8B4513';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(plat.x, screenY, plat.width, plat.height);
+                        
+                        if (plat.type === 'breakable') {
+                            ctx.fillStyle = '#8B4513';
+                            ctx.font = '12px Arial';
+                            ctx.fillText('⚠️', plat.x + plat.width / 2 - 10, screenY + 15);
+                        }
+                    }
+                }
+            });
+        }
+        
+        function drawObstacles() {
+            ctx.font = '40px Arial';
+            obstacles.forEach(obs => {
+                const screenY = obs.y - cameraY;
+                if (screenY > -50 && screenY < canvas.height + 50) {
+                    ctx.fillText(obs.type, obs.x, screenY + obs.height);
+                }
+            });
+        }
+        
+        function drawCoins() {
+            coins.forEach(coin => {
+                if (coin.collected) return;
+                const screenY = coin.y - cameraY;
+                if (screenY > -50 && screenY < canvas.height + 50) {
+                    coin.bounce += 0.1;
+                    const bounceY = Math.sin(coin.bounce) * 5;
+                    
+                    ctx.fillStyle = '#FFD700';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#FFD700';
+                    ctx.beginPath();
+                    ctx.arc(coin.x, screenY + bounceY, coin.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    
+                    ctx.fillStyle = '#FFA500';
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('$', coin.x, screenY + bounceY + 7);
+                    ctx.textAlign = 'left';
+                }
+            });
+        }
+        
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 40;
+                ctx.fillRect(p.x - cameraY * 0.1, p.y - cameraY, p.size, p.size);
+            });
+            ctx.globalAlpha = 1;
+        }
+        
+        function updatePlayer() {
+            // Pohyb
+            player.x += player.velocityX;
+            player.velocityY += player.gravity;
+            player.y += player.velocityY;
+            
+            // Hranice obrazovky
+            if (player.x < 30) player.x = 30;
+            if (player.x > canvas.width - player.width - 30) player.x = canvas.width - player.width - 30;
+            
+            // Kontrola pádu
+            if (player.y > canvas.height + cameraY + 100) {
+                lives--;
+                updateLives();
+                if (lives <= 0) {
+                    endGame();
+                } else {
+                    respawnPlayer();
+                }
+            }
+            
+            player.onPlatform = false;
+            
+            // Kolize s platformami
+            platforms.forEach(plat => {
+                if (plat.broken) return;
+                
+                if (player.x + player.width > plat.x &&
+                    player.x < plat.x + plat.width &&
+                    player.y + player.height > plat.y &&
+                    player.y + player.height < plat.y + plat.height + 20 &&
+                    player.velocityY >= 0) {
+                    
+                    player.y = plat.y - player.height;
+                    player.velocityY = 0;
+                    player.onPlatform = true;
+                    
+                    if (plat.type === 'breakable') {
+                        setTimeout(() => {
+                            plat.broken = true;
+                            createParticles(plat.x + plat.width / 2, plat.y, '#CD853F', 20);
+                        }, 1000); // Delší čas před rozbitím
+                    }
+                    
+                    if (plat.floor && plat.floor > currentFloor) {
+                        currentFloor = plat.floor;
+                        updateFloor();
+                        score += 100;
+                        updateScore();
+                        
+                        if (currentFloor === maxFloors) {
+                            victory();
+                        }
+                    }
+                }
+            });
+            
+            // Kolize s mincemi
+            coins.forEach(coin => {
+                if (!coin.collected) {
+                    const dx = (player.x + player.width / 2) - coin.x;
+                    const dy = (player.y + player.height / 2) - (coin.y - cameraY);
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < player.width) {
+                        coin.collected = true;
+                        score += 50;
+                        updateScore();
+                        createParticles(coin.x, coin.y - cameraY, '#FFD700', 15);
+                    }
+                }
+            });
+            
+            // Kolize s překážkami
+            obstacles.forEach(obs => {
+                if (player.x + player.width > obs.x &&
+                    player.x < obs.x + obs.width &&
+                    player.y + player.height > obs.y &&
+                    player.y < obs.y + obs.height) {
+                    
+                    lives--;
+                    updateLives();
+                    createParticles(player.x + player.width / 2, player.y + player.height / 2, '#ff0000', 20);
+                    if (lives <= 0) {
+                        endGame();
+                    } else {
+                        respawnPlayer();
+                    }
+                }
+            });
+        }
+        
+        function updateObstacles() {
+            obstacles.forEach(obs => {
+                obs.x += obs.speed * obs.direction;
+                if (obs.x <= obs.startX || obs.x >= obs.endX - obs.width) {
+                    obs.direction *= -1;
+                }
+            });
+        }
+        
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].x += particles[i].velocityX;
+                particles[i].y += particles[i].velocityY;
+                particles[i].velocityY += 0.5;
+                particles[i].life--;
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+        
+        function updateCamera() {
+            const targetY = player.y - canvas.height / 2;
+            cameraY += (targetY - cameraY) * 0.1;
+            
+            if (cameraY < -maxFloors * 200) cameraY = -maxFloors * 200;
+            if (cameraY > 0) cameraY = 0;
+            
+            gorilla.y = -maxFloors * 200 - 150;
+            gorilla.angry = currentFloor >= maxFloors - 2;
+        }
+        
+        function respawnPlayer() {
+            player.x = 100;
+            player.y = 600;
+            player.velocityX = 0;
+            player.velocityY = 0;
+            cameraY = 0;
+        }
+        
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+        }
+        
+        function updateFloor() {
+            document.getElementById('floor').textContent = currentFloor;
+            
+            const indicator = document.getElementById('levelIndicator');
+            indicator.textContent = `PATRO ${currentFloor}/${maxFloors}`;
+            indicator.style.display = 'block';
+            setTimeout(() => {
+                indicator.style.display = 'none';
+            }, 2000);
+        }
+        
+        function updateLives() {
+            const hearts = ['❤️', '❤️', '❤️'];
+            document.getElementById('lives').textContent = hearts.slice(0, lives).join(' ');
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            updatePlayer();
+            updateObstacles();
+            updateParticles();
+            updateCamera();
+        }
+        
+        function draw() {
+            drawBackground();
+            drawBuilding();
+            drawParticles();
+            drawPlatforms();
+            drawObstacles();
+            drawCoins();
+            drawPlayer();
+            drawGorilla();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        function endGame() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalFloor').textContent = currentFloor;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function victory() {
+            gameRunning = false;
+            document.getElementById('victoryScore').textContent = score;
+            document.getElementById('victory').style.display = 'block';
+        }
+        
+        function restart() {
+            score = 0;
+            lives = 3;
+            currentFloor = 0;
+            cameraY = 0;
+            gameRunning = true;
+            
+            player.x = 100;
+            player.y = 600;
+            player.velocityX = 0;
+            player.velocityY = 0;
+            
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('victory').style.display = 'none';
+            
+            updateScore();
+            updateFloor();
+            updateLives();
+            
+            generateLevel();
+            gameLoop();
+        }
+        
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+        
+        // Ovládání
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            if ((e.key === ' ' || e.key === 'ArrowUp') && player.onPlatform) {
+                e.preventDefault();
+                player.velocityY = player.jumpPower;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        setInterval(() => {
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+                player.velocityX = -player.speed;
+                player.direction = -1;
+            } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+                player.velocityX = player.speed;
+                player.direction = 1;
+            } else {
+                player.velocityX = 0;
+            }
+        }, 16);
+        
+        // Start
+        generateLevel();
+        gameLoop();
+    </script>
+</body>
+</html>
