@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match-3 Candy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #FF6B9D 0%, #C06C84 50%, #6C5B7B 100%);
+            font-family: 'Comic Sans MS', 'Arial Black', sans-serif;
+        }
+        #gameContainer {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+        h1 {
+            color: #FF1493;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+        }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .stat {
+            background: linear-gradient(135deg, #FF6B9D, #C06C84);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        #gameCanvas {
+            border: 5px solid #FF1493;
+            background: #fff;
+            display: block;
+            margin: 20px auto;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+        }
+        #gameOver, #victory {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 20, 147, 0.95);
+            padding: 40px;
+            border: 5px solid #FFD700;
+            border-radius: 20px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(255, 20, 147, 0.8);
+            z-index: 100;
+        }
+        #gameOver h2, #victory h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px #000;
+        }
+        .final-score {
+            font-size: 32px;
+            margin: 20px 0;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #FFD700;
+            color: #FF1493;
+            border: 3px solid #FF1493;
+            border-radius: 15px;
+            font-weight: bold;
+            font-family: 'Comic Sans MS', Arial, sans-serif;
+            box-shadow: 0 5px 0 #FFA500;
+            transition: all 0.1s;
+        }
+        button:hover {
+            background: #FFA500;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #FF8C00;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #FF8C00;
+        }
+        #instructions {
+            color: #6C5B7B;
+            font-size: 16px;
+            margin: 15px 0;
+        }
+        #combo {
+            display: none;
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: #FFD700;
+            text-shadow: 3px 3px 6px #FF1493;
+            animation: comboAnim 1s ease-out;
+            pointer-events: none;
+            z-index: 50;
+        }
+        @keyframes comboAnim {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🍬 Match-3 Candy 🍬</h1>
+        <div id="stats">
+            <div class="stat">🎯 Skóre: <span id="score">0</span></div>
+            <div class="stat">⏱️ Čas: <span id="time">60</span>s</div>
+            <div class="stat">🎪 Level: <span id="level">1</span></div>
+        </div>
+        <canvas id="gameCanvas" width="640" height="640"></canvas>
+        <div id="instructions">🖱️ Klikni na bonbón a táhni na sousední pro výměnu | Spoj 3+ stejných!</div>
+
+```
+    <div id="combo"></div>
+    
+    <div id="gameOver">
+        <h2>⏰ ČAS VYPRŠEL!</h2>
+        <div class="final-score">🎯 Skóre: <span id="finalScore">0</span></div>
+        <div class="final-score">🎪 Dosažený level: <span id="finalLevel">1</span></div>
+        <button onclick="restart()">🔄 HRÁT ZNOVU</button>
+        <button onclick="goHome()">🏠 MENU</button>
+    </div>
+    
+    <div id="victory">
+        <h2>🎉 ÚŽASNÉ! 🎉</h2>
+        <div class="final-score">🏆 Finální skóre: <span id="victoryScore">0</span></div>
+        <button onclick="restart()">🔄 DALŠÍ HRA</button>
+        <button onclick="goHome()">🏠 MENU</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const GRID_SIZE = 8;
+    const CELL_SIZE = 80;
+    const CANDIES = ['🍬', '🍭', '🍫', '🍩', '🍪', '🧁', '🍰'];
+    
+    let score = 0;
+    let timeLeft = 60;
+    let level = 1;
+    let gameRunning = true;
+    let grid = [];
+    let selectedCandy = null;
+    let animating = false;
+    let combo = 0;
+    let particles = [];
+    
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.velocityX = (Math.random() - 0.5) * 8;
+            this.velocityY = (Math.random() - 0.5) * 8 - 2;
+            this.size = Math.random() * 10 + 5;
+            this.color = color;
+            this.life = 30;
+        }
+        
+        update() {
+            this.x += this.velocityX;
+            this.y += this.velocityY;
+            this.velocityY += 0.5;
+            this.life--;
+        }
+        
+        draw() {
+            ctx.globalAlpha = this.life / 30;
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+            ctx.globalAlpha = 1;
+        }
+    }
+    
+    function initGrid() {
+        grid = [];
+        for (let row = 0; row < GRID_SIZE; row++) {
+            grid[row] = [];
+            for (let col = 0; col < GRID_SIZE; col++) {
+                grid[row][col] = {
+                    type: CANDIES[Math.floor(Math.random() * CANDIES.length)],
+                    x: col * CELL_SIZE,
+                    y: row * CELL_SIZE,
+                    falling: false,
+                    matched: false
+                };
+            }
+        }
+        // Ujistit se, že nejsou žádné shody na začátku
+        while (checkAllMatches().length > 0) {
+            removeMatches();
+            fillEmptySpaces();
+        }
+    }
+    
+    function drawGrid() {
+        // Pozadí
+        for (let row = 0; row < GRID_SIZE; row++) {
+            for (let col = 0; col < GRID_SIZE; col++) {
+                const x = col * CELL_SIZE;
+                const y = row * CELL_SIZE;
+                
+                // Šachovnicový vzor
+                ctx.fillStyle = (row + col) % 2 === 0 ? '#FFE4E1' : '#FFF0F5';
+                ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+                
+                // Ohraničení
+                ctx.strokeStyle = '#FFB6C1';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, CELL_SIZE, CELL_SIZE);
+            }
+        }
+        
+        // Bonbóny
+        ctx.font = '50px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        for (let row = 0; row < GRID_SIZE; row++) {
+            for (let col = 0; col < GRID_SIZE; col++) {
+                const candy = grid[row][col];
+                if (!candy.matched) {
+                    // Stín
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                    ctx.fillText(candy.type, candy.x + CELL_SIZE / 2, candy.y + CELL_SIZE / 2);
+                    ctx.shadowBlur = 0;
+                    
+                    // Zvýraznění vybraného bonbónu
+                    if (selectedCandy && selectedCandy.row === row && selectedCandy.col === col) {
+                        ctx.strokeStyle = '#FF1493';
+                        ctx.lineWidth = 5;
+                        ctx.strokeRect(candy.x + 5, candy.y + 5, CELL_SIZE - 10, CELL_SIZE - 10);
+                    }
+                }
+            }
+        }
+        
+        // Částice
+        particles.forEach(p => p.draw());
+    }
+    
+    function getCandyAt(x, y) {
+        const col = Math.floor(x / CELL_SIZE);
+        const row = Math.floor(y / CELL_SIZE);
+        
+        if (row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE) {
+            return { row, col };
+        }
+        return null;
+    }
+    
+    function areAdjacent(pos1, pos2) {
+        const rowDiff = Math.abs(pos1.row - pos2.row);
+        const colDiff = Math.abs(pos1.col - pos2.col);
+        return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+    }
+    
+    function swapCandies(pos1, pos2) {
+        const temp = grid[pos1.row][pos1.col].type;
+        grid[pos1.row][pos1.col].type = grid[pos2.row][pos2.col].type;
+        grid[pos2.row][pos2.col].type = temp;
+    }
+    
+    function checkMatch(row, col) {
+        const type = grid[row][col].type;
+        const matches = [{ row, col }];
+        
+        // Horizontální kontrola
+        let left = col - 1;
+        while (left >= 0 && grid[row][left].type === type) {
+            matches.push({ row, col: left });
+            left--;
+        }
+        
+        let right = col + 1;
+        while (right < GRID_SIZE && grid[row][right].type === type) {
+            matches.push({ row, col: right });
+            right++;
+        }
+        
+        if (matches.length >= 3) return matches;
+        
+        // Vertikální kontrola
+        matches.length = 1;
+        let up = row - 1;
+        while (up >= 0 && grid[up][col].type === type) {
+            matches.push({ row: up, col });
+            up--;
+        }
+        
+        let down = row + 1;
+        while (down < GRID_SIZE && grid[down][col].type === type) {
+            matches.push({ row: down, col });
+            down++;
+        }
+        
+        if (matches.length >= 3) return matches;
+        
+        return [];
+    }
+    
+    function checkAllMatches() {
+        const allMatches = [];
+        const processed = new Set();
+        
+        for (let row = 0; row < GRID_SIZE; row++) {
+            for (let col = 0; col < GRID_SIZE; col++) {
+                const key = `${row},${col}`;
+                if (!processed.has(key)) {
+                    const matches = checkMatch(row, col);
+                    if (matches.length > 0) {
+                        matches.forEach(m => {
+                            processed.add(`${m.row},${m.col}`);
+                            allMatches.push(m);
+                        });
+                    }
+                }
+            }
+        }
+        
+        return allMatches;
+    }
+    
+    function removeMatches() {
+        const matches = checkAllMatches();
+        
+        if (matches.length > 0) {
+            combo++;
+            const comboBonus = combo > 1 ? combo * 10 : 0;
+            const points = matches.length * 10 + comboBonus;
+            score += points;
+            updateScore();
+            
+            if (combo > 1) {
+                showCombo(combo);
+            }
+            
+            matches.forEach(m => {
+                grid[m.row][m.col].matched = true;
+                // Vytvoření částic
+                const x = m.col * CELL_SIZE + CELL_SIZE / 2;
+                const y = m.row * CELL_SIZE + CELL_SIZE / 2;
+                const colors = ['#FF69B4', '#FFD700', '#FF1493', '#FFA500'];
+                for (let i = 0; i < 8; i++) {
+                    particles.push(new Particle(x, y, colors[Math.floor(Math.random() * colors.length)]));
+                }
+            });
+            
+            return true;
+        }
+        
+        combo = 0;
+        return false;
+    }
+    
+    function fillEmptySpaces() {
+        // Spadnutí bonbónů dolů
+        for (let col = 0; col < GRID_SIZE; col++) {
+            let emptyRow = GRID_SIZE - 1;
+            for (let row = GRID_SIZE - 1; row >= 0; row--) {
+                if (!grid[row][col].matched) {
+                    if (row !== emptyRow) {
+                        grid[emptyRow][col] = grid[row][col];
+                        grid[emptyRow][col].y = emptyRow * CELL_SIZE;
+                        grid[row][col] = {
+                            type: '',
+                            x: col * CELL_SIZE,
+                            y: row * CELL_SIZE,
+                            matched: true
+                        };
+                    }
+                    emptyRow--;
+                }
+            }
+            
+            // Doplnění nových bonbónů shora
+            for (let row = emptyRow; row >= 0; row--) {
+                grid[row][col] = {
+                    type: CANDIES[Math.floor(Math.random() * CANDIES.length)],
+                    x: col * CELL_SIZE,
+                    y: row * CELL_SIZE,
+                    falling: false,
+                    matched: false
+                };
+            }
+        }
+    }
+    
+    function showCombo(num) {
+        const comboEl = document.getElementById('combo');
+        comboEl.textContent = `COMBO x${num}! 🔥`;
+        comboEl.style.display = 'block';
+        setTimeout(() => {
+            comboEl.style.display = 'none';
+        }, 1000);
+    }
+    
+    function updateScore() {
+        document.getElementById('score').textContent = score;
+        
+        // Level up každých 500 bodů
+        const newLevel = Math.floor(score / 500) + 1;
+        if (newLevel > level) {
+            level = newLevel;
+            document.getElementById('level').textContent = level;
+            timeLeft += 10; // Bonus čas za level up
+        }
+    }
+    
+    function updateTimer() {
+        if (!gameRunning) return;
+        
+        timeLeft--;
+        document.getElementById('time').textContent = timeLeft;
+        
+        if (timeLeft <= 0) {
+            endGame();
+        } else {
+            setTimeout(updateTimer, 1000);
+        }
+    }
+    
+    function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            if (particles[i].life <= 0) {
+                particles.splice(i, 1);
+            }
+        }
+    }
+    
+    function gameLoop() {
+        if (!gameRunning) return;
+        
+        if (!animating) {
+            const hadMatches = removeMatches();
+            if (hadMatches) {
+                animating = true;
+                setTimeout(() => {
+                    fillEmptySpaces();
+                    animating = false;
+                }, 300);
+            }
+        }
+        
+        updateParticles();
+        drawGrid();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    function endGame() {
+        gameRunning = false;
+        document.getElementById('finalScore').textContent = score;
+        document.getElementById('finalLevel').textContent = level;
+        document.getElementById('gameOver').style.display = 'block';
+    }
+    
+    function restart() {
+        score = 0;
+        timeLeft = 60;
+        level = 1;
+        combo = 0;
+        selectedCandy = null;
+        animating = false;
+        particles = [];
+        gameRunning = true;
+        
+        document.getElementById('gameOver').style.display = 'none';
+        document.getElementById('victory').style.display = 'none';
+        
+        document.getElementById('score').textContent = '0';
+        document.getElementById('time').textContent = '60';
+        document.getElementById('level').textContent = '1';
+        
+        initGrid();
+        updateTimer();
+        gameLoop();
+    }
+    
+    function goHome() {
+        window.location.href = 'index.html';
+    }
+    
+    // Event listenery
+    canvas.addEventListener('mousedown', (e) => {
+        if (animating || !gameRunning) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const pos = getCandyAt(x, y);
+        if (pos) {
+            selectedCandy = pos;
+        }
+    });
+    
+    canvas.addEventListener('mouseup', (e) => {
+        if (!selectedCandy || animating || !gameRunning) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const pos = getCandyAt(x, y);
+        if (pos && areAdjacent(selectedCandy, pos)) {
+            swapCandies(selectedCandy, pos);
+            
+            // Kontrola, zda swap vytvoří shodu
+            const matches1 = checkMatch(selectedCandy.row, selectedCandy.col);
+            const matches2 = checkMatch(pos.row, pos.col);
+            
+            if (matches1.length === 0 && matches2.length === 0) {
+                // Swap zpět, pokud nevytvoří shodu
+                swapCandies(selectedCandy, pos);
+            }
+        }
+        
+        selectedCandy = null;
+    });
+    
+    // Start
+    initGrid();
+    updateTimer();
+    gameLoop();
+</script>
+```
+
+</body>
+</html>
