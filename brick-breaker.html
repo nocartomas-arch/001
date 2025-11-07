@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brick Breaker Extreme</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            text-align: center;
+            position: relative;
+        }
+        h1 {
+            color: #FFD700;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .stat {
+            background: linear-gradient(135deg, #7e22ce, #1e3c72);
+            color: #FFD700;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            border: 3px solid #FFD700;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+        }
+        #gameCanvas {
+            border: 5px solid #FFD700;
+            background: #000;
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+            cursor: none;
+        }
+        #gameOver, #victory, #levelComplete {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 60, 114, 0.95);
+            padding: 40px;
+            border: 5px solid #FFD700;
+            border-radius: 20px;
+            color: #FFD700;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.8);
+            z-index: 100;
+        }
+        #gameOver h2 {
+            color: #ff0000;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px #000;
+        }
+        #victory h2, #levelComplete h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px #000;
+            animation: glow 1s infinite;
+        }
+        @keyframes glow {
+            0%, 100% { text-shadow: 3px 3px 6px #000, 0 0 20px #FFD700; }
+            50% { text-shadow: 3px 3px 6px #000, 0 0 40px #FFD700; }
+        }
+        .final-stats {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #FFD700;
+            color: #1e3c72;
+            border: 3px solid #1e3c72;
+            border-radius: 15px;
+            font-weight: bold;
+            font-family: 'Arial Black', Arial, sans-serif;
+            box-shadow: 0 5px 0 #B8860B;
+            transition: all 0.1s;
+        }
+        button:hover {
+            background: #FFA500;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #B8860B;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #B8860B;
+        }
+        #instructions {
+            color: #FFD700;
+            font-size: 16px;
+            margin: 15px 0;
+            text-shadow: 2px 2px 4px #000;
+        }
+        #powerUpInfo {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 215, 0, 0.9);
+            color: #1e3c72;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            display: none;
+            animation: fadeOut 2s forwards;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🧱 BRICK BREAKER EXTREME 🧱</h1>
+        <div id="stats">
+            <div class="stat">💎 Skóre: <span id="score">0</span></div>
+            <div class="stat">❤️ Životy: <span id="lives">3</span></div>
+            <div class="stat">📊 Level: <span id="level">1</span></div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="instructions">🖱️ Pohybuj myší pro ovládání pálky | Rozbicej všechny cihly!</div>
+
+```
+    <div id="powerUpInfo"></div>
+    
+    <div id="gameOver">
+        <h2>💥 GAME OVER 💥</h2>
+        <div class="final-stats">
+            💎 Finální skóre: <span id="finalScore">0</span><br>
+            📊 Dosažený level: <span id="finalLevel">1</span>
+        </div>
+        <button onclick="restart()">🔄 ZKUSIT ZNOVU</button>
+        <button onclick="goHome()">🏠 MENU</button>
+    </div>
+    
+    <div id="victory">
+        <h2>🏆 VÍTĚZSTVÍ! 🏆</h2>
+        <div class="final-stats">
+            💎 Úžasné skóre: <span id="victoryScore">0</span><br>
+            🎉 Prošel jsi všemi levely!
+        </div>
+        <button onclick="restart()">🔄 HRÁT ZNOVU</button>
+        <button onclick="goHome()">🏠 MENU</button>
+    </div>
+    
+    <div id="levelComplete">
+        <h2>⭐ LEVEL DOKONČEN! ⭐</h2>
+        <div class="final-stats">
+            💎 Skóre: <span id="levelScore">0</span><br>
+            📊 Další level: <span id="nextLevel">2</span>
+        </div>
+        <button onclick="nextLevel()">▶️ POKRAČOVAT</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let score = 0;
+    let lives = 3;
+    let level = 1;
+    const maxLevels = 5;
+    let gameRunning = true;
+    let paused = false;
+    
+    // Pálka
+    const paddle = {
+        x: canvas.width / 2 - 60,
+        y: canvas.height - 30,
+        width: 120,
+        height: 15,
+        speed: 8,
+        color: '#FFD700'
+    };
+    
+    // Míček
+    const ball = {
+        x: canvas.width / 2,
+        y: canvas.height - 50,
+        radius: 8,
+        speedX: 4,
+        speedY: -4,
+        maxSpeed: 10,
+        color: '#FF1493'
+    };
+    
+    // Cihly
+    let bricks = [];
+    const brickColors = [
+        { color: '#FF0000', points: 50, hits: 3 },
+        { color: '#FF8C00', points: 30, hits: 2 },
+        { color: '#FFD700', points: 20, hits: 1 },
+        { color: '#00FF00', points: 10, hits: 1 }
+    ];
+    
+    // Power-upy
+    let powerUps = [];
+    const powerUpTypes = [
+        { type: 'wide', emoji: '📏', color: '#00BFFF' },
+        { type: 'multi', emoji: '⚡', color: '#FFD700' },
+        { type: 'slow', emoji: '🐌', color: '#90EE90' },
+        { type: 'life', emoji: '❤️', color: '#FF1493' }
+    ];
+    
+    let activePowerUp = null;
+    let powerUpTimer = 0;
+    
+    // Částice
+    let particles = [];
+    
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.velocityX = (Math.random() - 0.5) * 8;
+            this.velocityY = (Math.random() - 0.5) * 8;
+            this.size = Math.random() * 5 + 2;
+            this.color = color;
+            this.life = 30;
+        }
+        
+        update() {
+            this.x += this.velocityX;
+            this.y += this.velocityY;
+            this.velocityY += 0.3;
+            this.life--;
+        }
+        
+        draw() {
+            ctx.globalAlpha = this.life / 30;
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+            ctx.globalAlpha = 1;
+        }
+    }
+    
+    function createBricks() {
+        bricks = [];
+        const rows = 5 + level;
+        const cols = 10;
+        const brickWidth = 70;
+        const brickHeight = 20;
+        const padding = 5;
+        const offsetX = 35;
+        const offsetY = 60;
+        
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const colorIndex = Math.min(row % 4, brickColors.length - 1);
+                const brickData = brickColors[colorIndex];
+                
+                bricks.push({
+                    x: offsetX + col * (brickWidth + padding),
+                    y: offsetY + row * (brickHeight + padding),
+                    width: brickWidth,
+                    height: brickHeight,
+                    color: brickData.color,
+                    points: brickData.points,
+                    hits: brickData.hits,
+                    maxHits: brickData.hits,
+                    visible: true
+                });
+            }
+        }
+    }
+    
+    function drawPaddle() {
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = paddle.color;
+        ctx.fillStyle = paddle.color;
+        ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        
+        // Gradient efekt
+        const gradient = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x, paddle.y + paddle.height);
+        gradient.addColorStop(0, '#FFFFFF');
+        gradient.addColorStop(1, paddle.color);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        ctx.shadowBlur = 0;
+    }
+    
+    function drawBall() {
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = ball.color;
+        ctx.fillStyle = ball.color;
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Světlejší střed
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(ball.x - 2, ball.y - 2, ball.radius / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+    
+    function drawBricks() {
+        bricks.forEach(brick => {
+            if (brick.visible) {
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = brick.color;
+                ctx.fillStyle = brick.color;
+                ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                
+                // Ohraničení
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
+                
+                // Indikátor životů
+                if (brick.maxHits > 1) {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(brick.hits, brick.x + brick.width / 2, brick.y + brick.height / 2 + 5);
+                }
+                ctx.shadowBlur = 0;
+            }
+        });
+    }
+    
+    function drawPowerUps() {
+        ctx.font = '30px Arial';
+        powerUps.forEach(powerUp => {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = powerUp.color;
+            ctx.fillText(powerUp.emoji, powerUp.x, powerUp.y);
+            ctx.shadowBlur = 0;
+        });
+    }
+    
+    function drawParticles() {
+        particles.forEach(p => p.draw());
+    }
+    
+    function createParticles(x, y, color, count = 15) {
+        for (let i = 0; i < count; i++) {
+            particles.push(new Particle(x, y, color));
+        }
+    }
+    
+    function updateBall() {
+        ball.x += ball.speedX;
+        ball.y += ball.speedY;
+        
+        // Kolize se stěnami
+        if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+            ball.speedX = -ball.speedX;
+            ball.x = ball.x < canvas.width / 2 ? ball.radius : canvas.width - ball.radius;
+        }
+        
+        if (ball.y - ball.radius < 0) {
+            ball.speedY = -ball.speedY;
+            ball.y = ball.radius;
+        }
+        
+        // Kolize s pálkou
+        if (ball.y + ball.radius > paddle.y &&
+            ball.x > paddle.x &&
+            ball.x < paddle.x + paddle.width) {
+            
+            ball.speedY = -Math.abs(ball.speedY);
+            
+            // Změna úhlu podle místa dopadu na pálce
+            const hitPos = (ball.x - paddle.x) / paddle.width;
+            ball.speedX = (hitPos - 0.5) * 10;
+            
+            // Omezení maximální rychlosti
+            const speed = Math.sqrt(ball.speedX * ball.speedX + ball.speedY * ball.speedY);
+            if (speed > ball.maxSpeed) {
+                ball.speedX = (ball.speedX / speed) * ball.maxSpeed;
+                ball.speedY = (ball.speedY / speed) * ball.maxSpeed;
+            }
+        }
+        
+        // Ztráta života
+        if (ball.y - ball.radius > canvas.height) {
+            lives--;
+            updateLives();
+            if (lives <= 0) {
+                endGame();
+            } else {
+                resetBall();
+            }
+        }
+        
+        // Kolize s cihlami
+        bricks.forEach(brick => {
+            if (brick.visible &&
+                ball.x + ball.radius > brick.x &&
+                ball.x - ball.radius < brick.x + brick.width &&
+                ball.y + ball.radius > brick.y &&
+                ball.y - ball.radius < brick.y + brick.height) {
+                
+                ball.speedY = -ball.speedY;
+                brick.hits--;
+                
+                if (brick.hits <= 0) {
+                    brick.visible = false;
+                    score += brick.points * level;
+                    updateScore();
+                    createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.color);
+                    
+                    // Náhodný spawn power-upu
+                    if (Math.random() < 0.15) {
+                        const powerUpType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+                        powerUps.push({
+                            x: brick.x + brick.width / 2,
+                            y: brick.y + brick.height / 2,
+                            width: 30,
+                            height: 30,
+                            type: powerUpType.type,
+                            emoji: powerUpType.emoji,
+                            color: powerUpType.color,
+                            speedY: 2
+                        });
+                    }
+                    
+                    // Kontrola dokončení levelu
+                    if (bricks.every(b => !b.visible)) {
+                        levelComplete();
+                    }
+                } else {
+                    createParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.color, 5);
+                }
+            }
+        });
+    }
+    
+    function updatePowerUps() {
+        for (let i = powerUps.length - 1; i >= 0; i--) {
+            powerUps[i].y += powerUps[i].speedY;
+            
+            // Kolize s pálkou
+            if (powerUps[i].y + powerUps[i].height > paddle.y &&
+                powerUps[i].x > paddle.x &&
+                powerUps[i].x < paddle.x + paddle.width) {
+                
+                activatePowerUp(powerUps[i].type);
+                powerUps.splice(i, 1);
+                continue;
+            }
+            
+            // Odstranění mimo obrazovku
+            if (powerUps[i].y > canvas.height) {
+                powerUps.splice(i, 1);
+            }
+        }
+        
+        // Timer na aktivní power-up
+        if (activePowerUp && powerUpTimer > 0) {
+            powerUpTimer--;
+            if (powerUpTimer === 0) {
+                deactivatePowerUp();
+            }
+        }
+    }
+    
+    function activatePowerUp(type) {
+        const info = document.getElementById('powerUpInfo');
+        
+        switch(type) {
+            case 'wide':
+                paddle.width = 180;
+                powerUpTimer = 300;
+                activePowerUp = 'wide';
+                info.textContent = '📏 ŠIROKÁ PÁLKA!';
+                break;
+            case 'multi':
+                ball.speedX *= 1.5;
+                ball.speedY *= 1.5;
+                powerUpTimer = 300;
+                activePowerUp = 'multi';
+                info.textContent = '⚡ RYCHLÝ MÍČEK!';
+                break;
+            case 'slow':
+                ball.speedX *= 0.7;
+                ball.speedY *= 0.7;
+                powerUpTimer = 300;
+                activePowerUp = 'slow';
+                info.textContent = '🐌 POMALÝ MÍČEK!';
+                break;
+            case 'life':
+                lives++;
+                updateLives();
+                info.textContent = '❤️ EXTRA ŽIVOT!';
+                break;
+        }
+        
+        info.style.display = 'block';
+        setTimeout(() => {
+            info.style.display = 'none';
+        }, 2000);
+    }
+    
+    function deactivatePowerUp() {
+        if (activePowerUp === 'wide') {
+            paddle.width = 120;
+        }
+        activePowerUp = null;
+    }
+    
+    function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            if (particles[i].life <= 0) {
+                particles.splice(i, 1);
+            }
+        }
+    }
+    
+    function resetBall() {
+        ball.x = canvas.width / 2;
+        ball.y = canvas.height - 50;
+        ball.speedX = 4 * (Math.random() > 0.5 ? 1 : -1);
+        ball.speedY = -4;
+    }
+    
+    function updateScore() {
+        document.getElementById('score').textContent = score;
+    }
+    
+    function updateLives() {
+        const hearts = '❤️'.repeat(lives);
+        document.getElementById('lives').textContent = hearts || '💀';
+    }
+    
+    function updateLevel() {
+        document.getElementById('level').textContent = level;
+    }
+    
+    function draw() {
+        // Pozadí
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Hvězdy na pozadí
+        ctx.fillStyle = '#FFFFFF';
+        for (let i = 0; i < 50; i++) {
+            const x = (i * 37) % canvas.width;
+            const y = (i * 53) % canvas.height;
+            ctx.fillRect(x, y, 2, 2);
+        }
+        
+        drawParticles();
+        drawBricks();
+        drawPowerUps();
+        drawPaddle();
+        drawBall();
+    }
+    
+    function gameLoop() {
+        if (!gameRunning || paused) return;
+        
+        updateBall();
+        updatePowerUps();
+        updateParticles();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    function levelComplete() {
+        paused = true;
+        document.getElementById('levelScore').textContent = score;
+        document.getElementById('nextLevel').textContent = level + 1;
+        document.getElementById('levelComplete').style.display = 'block';
+    }
+    
+    function nextLevel() {
+        level++;
+        updateLevel();
+        
+        if (level > maxLevels) {
+            victory();
+            return;
+        }
+        
+        document.getElementById('levelComplete').style.display = 'none';
+        paused = false;
+        
+        createBricks();
+        resetBall();
+        powerUps = [];
+        deactivatePowerUp();
+        
+        // Zvýšení obtížnosti
+        ball.maxSpeed += 0.5;
+        
+        gameLoop();
+    }
+    
+    function endGame() {
+        gameRunning = false;
+        document.getElementById('finalScore').textContent = score;
+        document.getElementById('finalLevel').textContent = level;
+        document.getElementById('gameOver').style.display = 'block';
+    }
+    
+    function victory() {
+        gameRunning = false;
+        document.getElementById('victoryScore').textContent = score;
+        document.getElementById('victory').style.display = 'block';
+    }
+    
+    function restart() {
+        score = 0;
+        lives = 3;
+        level = 1;
+        gameRunning = true;
+        paused = false;
+        powerUps = [];
+        particles = [];
+        activePowerUp = null;
+        powerUpTimer = 0;
+        
+        paddle.width = 120;
+        ball.maxSpeed = 10;
+        
+        document.getElementById('gameOver').style.display = 'none';
+        document.getElementById('victory').style.display = 'none';
+        document.getElementById('levelComplete').style.display = 'none';
+        
+        updateScore();
+        updateLives();
+        updateLevel();
+        
+        createBricks();
+        resetBall();
+        gameLoop();
+    }
+    
+    function goHome() {
+        window.location.href = 'index.html';
+    }
+    
+    // Ovládání myší
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        paddle.x = e.clientX - rect.left - paddle.width / 2;
+        
+        if (paddle.x < 0) paddle.x = 0;
+        if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+    });
+    
+    // Start
+    createBricks();
+    gameLoop();
+</script>
+```
+
+</body>
+</html>
