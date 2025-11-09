@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Classic</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        #gameContainer {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+        h1 {
+            color: #00FF00;
+            font-size: 3.5em;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+        }
+        .subtitle {
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .stat {
+            background: linear-gradient(135deg, #00FF00, #00CC00);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 255, 0, 0.3);
+        }
+        #gameCanvas {
+            border: 5px solid #00FF00;
+            background: #000;
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+        }
+        #gameOver, #paused {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 40px;
+            border: 5px solid #00FF00;
+            border-radius: 20px;
+            color: #00FF00;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.8);
+            z-index: 100;
+        }
+        #gameOver h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .game-stats {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #00FF00;
+            color: #000;
+            border: none;
+            border-radius: 15px;
+            font-weight: bold;
+            box-shadow: 0 5px 0 #00CC00;
+            transition: all 0.1s;
+        }
+        button:hover {
+            background: #00CC00;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #009900;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #009900;
+        }
+        #instructions {
+            color: #666;
+            font-size: 16px;
+            margin: 15px 0;
+        }
+        .difficulty-selector {
+            margin: 20px 0;
+        }
+        .difficulty-btn {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #f0f0f0;
+            color: #333;
+            border: 2px solid #00FF00;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .difficulty-btn.active {
+            background: #00FF00;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🐍 SNAKE CLASSIC 🐍</h1>
+        <p class="subtitle">Sněz jídlo a rozsť!</p>
+        
+        <div class="difficulty-selector">
+            <button class="difficulty-btn active" onclick="setDifficulty('easy')">😊 Pomalý</button>
+            <button class="difficulty-btn" onclick="setDifficulty('medium')">😐 Střední</button>
+            <button class="difficulty-btn" onclick="setDifficulty('hard')">😰 Rychlý</button>
+        </div>
+        
+        <div id="stats">
+            <div class="stat">🍎 Skóre: <span id="score">0</span></div>
+            <div class="stat">📏 Délka: <span id="length">3</span></div>
+            <div class="stat">🏆 Rekord: <span id="highScore">0</span></div>
+        </div>
+        
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        
+        <div id="instructions">⬆️⬇️⬅️➡️ ŠIPKY = ovládání | P = pauza | Nesraz se do sebe ani do stěny!</div>
+        
+        <button onclick="startGame()">🎮 NOVÁ HRA</button>
+        <button onclick="goHome()">🏠 MENU</button>
+        
+        <div id="gameOver">
+            <h2>💀 KONEC HRY! 💀</h2>
+            <div class="game-stats">
+                🍎 Finální skóre: <span id="finalScore">0</span><br>
+                📏 Finální délka: <span id="finalLength">0</span><br>
+                🏆 Rekord: <span id="finalHighScore">0</span>
+            </div>
+            <button onclick="startGame()">🔄 ZKUSIT ZNOVU</button>
+            <button onclick="goHome()">🏠 MENU</button>
+        </div>
+        
+        <div id="paused">
+            <h2>⏸️ PAUZA</h2>
+            <button onclick="togglePause()">▶️ POKRAČOVAT</button>
+            <button onclick="startGame()">🔄 RESTART</button>
+            <button onclick="goHome()">🏠 MENU</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const GRID_SIZE = 20;
+        const CELL_SIZE = canvas.width / GRID_SIZE;
+        
+        let snake = [];
+        let direction = 'right';
+        let nextDirection = 'right';
+        let food = {};
+        let score = 0;
+        let highScore = localStorage.getItem('snakeHighScore') || 0;
+        let gameRunning = false;
+        let paused = false;
+        let gameSpeed = 100;
+        let difficulty = 'medium';
+        let gameLoop;
+        
+        const foodEmojis = ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍒', '🥝', '🍑'];
+        
+        document.getElementById('highScore').textContent = highScore;
+        
+        function setDifficulty(level) {
+            difficulty = level;
+            
+            document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            switch(level) {
+                case 'easy':
+                    gameSpeed = 150;
+                    break;
+                case 'medium':
+                    gameSpeed = 100;
+                    break;
+                case 'hard':
+                    gameSpeed = 60;
+                    break;
+            }
+            
+            if (gameRunning) {
+                startGame();
+            }
+        }
+        
+        function initGame() {
+            snake = [
+                { x: 10, y: 10 },
+                { x: 9, y: 10 },
+                { x: 8, y: 10 }
+            ];
+            direction = 'right';
+            nextDirection = 'right';
+            score = 0;
+            gameRunning = true;
+            paused = false;
+            
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('paused').style.display = 'none';
+            
+            updateStats();
+            spawnFood();
+        }
+        
+        function spawnFood() {
+            do {
+                food = {
+                    x: Math.floor(Math.random() * GRID_SIZE),
+                    y: Math.floor(Math.random() * GRID_SIZE),
+                    emoji: foodEmojis[Math.floor(Math.random() * foodEmojis.length)]
+                };
+            } while (snake.some(segment => segment.x === food.x && segment.y === food.y));
+        }
+        
+        function drawGrid() {
+            // Šachovnicový vzor
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    ctx.fillStyle = (x + y) % 2 === 0 ? '#0a0a0a' : '#0f0f0f';
+                    ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                }
+            }
+        }
+        
+        function drawSnake() {
+            snake.forEach((segment, index) => {
+                if (index === 0) {
+                    // Hlava
+                    ctx.fillStyle = '#00FF00';
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#00FF00';
+                } else {
+                    // Tělo
+                    ctx.fillStyle = '#00CC00';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#00CC00';
+                }
+                
+                ctx.fillRect(
+                    segment.x * CELL_SIZE + 2,
+                    segment.y * CELL_SIZE + 2,
+                    CELL_SIZE - 4,
+                    CELL_SIZE - 4
+                );
+                
+                // Oči na hlavě
+                if (index === 0) {
+                    ctx.fillStyle = '#000';
+                    ctx.shadowBlur = 0;
+                    const eyeSize = 4;
+                    
+                    if (direction === 'right') {
+                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - 10, segment.y * CELL_SIZE + 8, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - 10, segment.y * CELL_SIZE + CELL_SIZE - 12, eyeSize, eyeSize);
+                    } else if (direction === 'left') {
+                        ctx.fillRect(segment.x * CELL_SIZE + 6, segment.y * CELL_SIZE + 8, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * CELL_SIZE + 6, segment.y * CELL_SIZE + CELL_SIZE - 12, eyeSize, eyeSize);
+                    } else if (direction === 'up') {
+                        ctx.fillRect(segment.x * CELL_SIZE + 8, segment.y * CELL_SIZE + 6, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - 12, segment.y * CELL_SIZE + 6, eyeSize, eyeSize);
+                    } else if (direction === 'down') {
+                        ctx.fillRect(segment.x * CELL_SIZE + 8, segment.y * CELL_SIZE + CELL_SIZE - 10, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x * CELL_SIZE + CELL_SIZE - 12, segment.y * CELL_SIZE + CELL_SIZE - 10, eyeSize, eyeSize);
+                    }
+                }
+            });
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawFood() {
+            ctx.font = `${CELL_SIZE - 5}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#FFD700';
+            ctx.fillText(
+                food.emoji,
+                food.x * CELL_SIZE + CELL_SIZE / 2,
+                food.y * CELL_SIZE + CELL_SIZE / 2
+            );
+            ctx.shadowBlur = 0;
+        }
+        
+        function update() {
+            if (!gameRunning || paused) return;
+            
+            direction = nextDirection;
+            
+            // Nová pozice hlavy
+            const head = { ...snake[0] };
+            
+            switch(direction) {
+                case 'up':
+                    head.y--;
+                    break;
+                case 'down':
+                    head.y++;
+                    break;
+                case 'left':
+                    head.x--;
+                    break;
+                case 'right':
+                    head.x++;
+                    break;
+            }
+            
+            // Kontrola kolize se stěnou
+            if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+                endGame();
+                return;
+            }
+            
+            // Kontrola kolize se sebou
+            if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                endGame();
+                return;
+            }
+            
+            // Přidání nové hlavy
+            snake.unshift(head);
+            
+            // Kontrola jídla
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                updateStats();
+                spawnFood();
+            } else {
+                // Odstranění konce (pokud nesní jídlo)
+                snake.pop();
+            }
+        }
+        
+        function draw() {
+            drawGrid();
+            drawFood();
+            drawSnake();
+        }
+        
+        function gameUpdate() {
+            update();
+            draw();
+        }
+        
+        function startGame() {
+            clearInterval(gameLoop);
+            initGame();
+            gameLoop = setInterval(gameUpdate, gameSpeed);
+        }
+        
+        function togglePause() {
+            paused = !paused;
+            document.getElementById('paused').style.display = paused ? 'block' : 'none';
+        }
+        
+        function updateStats() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('length').textContent = snake.length;
+            
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('snakeHighScore', highScore);
+                document.getElementById('highScore').textContent = highScore;
+            }
+        }
+        
+        function endGame() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalLength').textContent = snake.length;
+            document.getElementById('finalHighScore').textContent = highScore;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+        
+        // Ovládání
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (direction !== 'down') nextDirection = 'up';
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    if (direction !== 'up') nextDirection = 'down';
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (direction !== 'right') nextDirection = 'left';
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (direction !== 'left') nextDirection = 'right';
+                    break;
+                case 'p':
+                case 'P':
+                case 'Escape':
+                    togglePause();
+                    break;
+            }
+        });
+        
+        // Automatický start
+        draw();
+    </script>
+</body>
+</html>
