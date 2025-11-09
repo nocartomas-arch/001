@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #000;
+            font-family: 'Courier New', monospace;
+        }
+        #gameContainer {
+            text-align: center;
+            position: relative;
+        }
+        h1 {
+            color: #00FF00;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #00FF00;
+            animation: glow 2s infinite alternate;
+        }
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #00FF00; }
+            to { text-shadow: 0 0 30px #00FF00, 0 0 40px #00FF00; }
+        }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .stat {
+            background: rgba(0, 255, 0, 0.2);
+            color: #00FF00;
+            padding: 10px 20px;
+            border: 2px solid #00FF00;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00FF00;
+        }
+        #gameCanvas {
+            border: 3px solid #00FF00;
+            background: #000;
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+        }
+        #gameOver, #victory {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 40px;
+            border: 5px solid #00FF00;
+            border-radius: 20px;
+            color: #00FF00;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.8);
+            z-index: 100;
+        }
+        #gameOver h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #FF0000;
+            text-shadow: 0 0 20px #FF0000;
+        }
+        #victory h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #00FF00;
+            animation: victoryPulse 1s infinite;
+        }
+        @keyframes victoryPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .game-stats {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #00FF00;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 5px 0 #00AA00;
+            transition: all 0.1s;
+        }
+        button:hover {
+            background: #00CC00;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #00AA00;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #00AA00;
+        }
+        #instructions {
+            color: #00FF00;
+            font-size: 16px;
+            margin: 15px 0;
+            text-shadow: 0 0 5px #00FF00;
+        }
+        #lives {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: #00FF00;
+            text-shadow: 0 0 10px #00FF00;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>👾 SPACE INVADERS 👾</h1>
+        <div id="stats">
+            <div class="stat">💎 SKÓRE: <span id="score">0</span></div>
+            <div class="stat">🌊 VLNA: <span id="wave">1</span></div>
+            <div class="stat">❤️ ŽIVOTY: <span id="livesCount">3</span></div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="lives"></div>
+        <div id="instructions">⬅️ ➡️ ŠIPKY = pohyb | MEZERNÍK = střelba | Zničte všechny invadery!</div>
+        
+        <button onclick="restart()">🎮 NOVÁ HRA</button>
+        <button onclick="goHome()">🏠 MENU</button>
+        
+        <div id="gameOver">
+            <h2>💀 GAME OVER 💀</h2>
+            <div class="game-stats">
+                💎 Finální skóre: <span id="finalScore">0</span><br>
+                🌊 Dosažená vlna: <span id="finalWave">1</span>
+            </div>
+            <button onclick="restart()">🔄 ZKUSIT ZNOVU</button>
+            <button onclick="goHome()">🏠 MENU</button>
+        </div>
+        
+        <div id="victory">
+            <h2>🏆 VÍTĚZSTVÍ! 🏆</h2>
+            <div class="game-stats">
+                💎 Úžasné skóre: <span id="victoryScore">0</span><br>
+                🌊 Dokončených vln: <span id="victoryWave">1</span>
+            </div>
+            <button onclick="restart()">🔄 DALŠÍ VLNA</button>
+            <button onclick="goHome()">🏠 MENU</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let score = 0;
+        let wave = 1;
+        let lives = 3;
+        let gameRunning = true;
+        
+        // Hráč
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 80,
+            width: 50,
+            height: 30,
+            speed: 6,
+            color: '#00FF00'
+        };
+        
+        // Střely
+        let bullets = [];
+        let enemyBullets = [];
+        
+        // Nepřátelé
+        let enemies = [];
+        let enemyDirection = 1;
+        let enemySpeed = 1;
+        
+        // Částice
+        let particles = [];
+        
+        // Štíty
+        let shields = [];
+        
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.velocityX = (Math.random() - 0.5) * 10;
+                this.velocityY = (Math.random() - 0.5) * 10;
+                this.size = Math.random() * 4 + 2;
+                this.color = color;
+                this.life = 30;
+            }
+            
+            update() {
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+                this.life--;
+            }
+            
+            draw() {
+                ctx.globalAlpha = this.life / 30;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        function createEnemies() {
+            enemies = [];
+            const rows = 4 + Math.floor(wave / 2);
+            const cols = 8;
+            const startX = 100;
+            const startY = 50;
+            const spacing = 70;
+            
+            for (let row = 0; row < Math.min(rows, 6); row++) {
+                for (let col = 0; col < cols; col++) {
+                    enemies.push({
+                        x: startX + col * spacing,
+                        y: startY + row * spacing,
+                        width: 40,
+                        height: 30,
+                        alive: true,
+                        points: (5 - Math.floor(row / 2)) * 10
+                    });
+                }
+            }
+            
+            enemySpeed = 1 + wave * 0.3;
+        }
+        
+        function createShields() {
+            shields = [];
+            const shieldWidth = 80;
+            const shieldHeight = 60;
+            const shieldY = canvas.height - 150;
+            
+            for (let i = 0; i < 3; i++) {
+                const x = 150 + i * 250;
+                shields.push({
+                    x: x,
+                    y: shieldY,
+                    width: shieldWidth,
+                    height: shieldHeight,
+                    health: 20
+                });
+            }
+        }
+        
+        function drawPlayer() {
+            // Tělo lodi
+            ctx.fillStyle = player.color;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = player.color;
+            
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width / 2, player.y);
+            ctx.lineTo(player.x + player.width, player.y + player.height);
+            ctx.lineTo(player.x, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Kokpit
+            ctx.fillStyle = '#00FFFF';
+            ctx.beginPath();
+            ctx.arc(player.x + player.width / 2, player.y + 15, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawEnemies() {
+            ctx.shadowBlur = 10;
+            enemies.forEach(enemy => {
+                if (enemy.alive) {
+                    ctx.shadowColor = '#FF00FF';
+                    
+                    // Tělo
+                    ctx.fillStyle = '#FF00FF';
+                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    
+                    // Oči
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(enemy.x + 8, enemy.y + 8, 8, 8);
+                    ctx.fillRect(enemy.x + enemy.width - 16, enemy.y + 8, 8, 8);
+                    
+                    // Chapadla
+                    ctx.fillStyle = '#FF00FF';
+                    for (let i = 0; i < 3; i++) {
+                        ctx.fillRect(enemy.x + 10 + i * 10, enemy.y + enemy.height, 4, 8);
+                    }
+                }
+            });
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawBullets() {
+            ctx.fillStyle = '#FFFF00';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#FFFF00';
+            
+            bullets.forEach(bullet => {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+            
+            ctx.shadowBlur = 0;
+            
+            ctx.fillStyle = '#FF0000';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#FF0000';
+            
+            enemyBullets.forEach(bullet => {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+            
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawShields() {
+            shields.forEach(shield => {
+                if (shield.health > 0) {
+                    ctx.fillStyle = `rgba(0, 255, 255, ${shield.health / 20})`;
+                    ctx.fillRect(shield.x, shield.y, shield.width, shield.height);
+                    
+                    ctx.strokeStyle = '#00FFFF';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(shield.x, shield.y, shield.width, shield.height);
+                }
+            });
+        }
+        
+        function drawParticles() {
+            particles.forEach(p => p.draw());
+        }
+        
+        function drawStars() {
+            ctx.fillStyle = 'white';
+            for (let i = 0; i < 100; i++) {
+                const x = (i * 37) % canvas.width;
+                const y = (i * 53 + Date.now() * 0.05) % canvas.height;
+                ctx.fillRect(x, y, 2, 2);
+            }
+        }
+        
+        function updatePlayer() {
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+        }
+        
+        function updateBullets() {
+            // Hráčovy střely
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= bullets[i].speed;
+                
+                // Odstranění mimo obrazovku
+                if (bullets[i].y < 0) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+                
+                // Kolize s nepřáteli
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    if (enemies[j].alive &&
+                        bullets[i].x < enemies[j].x + enemies[j].width &&
+                        bullets[i].x + bullets[i].width > enemies[j].x &&
+                        bullets[i].y < enemies[j].y + enemies[j].height &&
+                        bullets[i].y + bullets[i].height > enemies[j].y) {
+                        
+                        enemies[j].alive = false;
+                        score += enemies[j].points;
+                        updateScore();
+                        
+                        createExplosion(enemies[j].x + enemies[j].width / 2, 
+                                      enemies[j].y + enemies[j].height / 2, '#FF00FF');
+                        
+                        bullets.splice(i, 1);
+                        
+                        if (enemies.every(e => !e.alive)) {
+                            nextWave();
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            // Nepřátelské střely
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                enemyBullets[i].y += enemyBullets[i].speed;
+                
+                if (enemyBullets[i].y > canvas.height) {
+                    enemyBullets.splice(i, 1);
+                    continue;
+                }
+                
+                // Kolize se štíty
+                for (let shield of shields) {
+                    if (shield.health > 0 &&
+                        enemyBullets[i].x < shield.x + shield.width &&
+                        enemyBullets[i].x + enemyBullets[i].width > shield.x &&
+                        enemyBullets[i].y < shield.y + shield.height &&
+                        enemyBullets[i].y + enemyBullets[i].height > shield.y) {
+                        
+                        shield.health--;
+                        enemyBullets.splice(i, 1);
+                        break;
+                    }
+                }
+                
+                // Kolize s hráčem
+                if (enemyBullets[i] &&
+                    enemyBullets[i].x < player.x + player.width &&
+                    enemyBullets[i].x + enemyBullets[i].width > player.x &&
+                    enemyBullets[i].y < player.y + player.height &&
+                    enemyBullets[i].y + enemyBullets[i].height > player.y) {
+                    
+                    lives--;
+                    updateLives();
+                    createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#00FF00');
+                    enemyBullets.splice(i, 1);
+                    
+                    if (lives <= 0) {
+                        endGame();
+                    }
+                }
+            }
+        }
+        
+        function updateEnemies() {
+            let hitEdge = false;
+            
+            enemies.forEach(enemy => {
+                if (enemy.alive) {
+                    enemy.x += enemySpeed * enemyDirection;
+                    
+                    if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
+                        hitEdge = true;
+                    }
+                    
+                    if (enemy.y + enemy.height >= player.y) {
+                        endGame();
+                    }
+                }
+            });
+            
+            if (hitEdge) {
+                enemyDirection *= -1;
+                enemies.forEach(enemy => {
+                    if (enemy.alive) {
+                        enemy.y += 30;
+                    }
+                });
+            }
+            
+            // Náhodná střelba nepřátel
+            if (Math.random() < 0.02) {
+                const aliveEnemies = enemies.filter(e => e.alive);
+                if (aliveEnemies.length > 0) {
+                    const shooter = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+                    enemyBullets.push({
+                        x: shooter.x + shooter.width / 2 - 2,
+                        y: shooter.y + shooter.height,
+                        width: 4,
+                        height: 15,
+                        speed: 5
+                    });
+                }
+            }
+        }
+        
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+        
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 20; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+        
+        function shoot() {
+            if (bullets.length < 3) {
+                bullets.push({
+                    x: player.x + player.width / 2 - 2,
+                    y: player.y,
+                    width: 4,
+                    height: 15,
+                    speed: 10
+                });
+            }
+        }
+        
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+        }
+        
+        function updateLives() {
+            document.getElementById('livesCount').textContent = lives;
+            const livesEl = document.getElementById('lives');
+            livesEl.textContent = '❤️ '.repeat(lives);
+        }
+        
+        function nextWave() {
+            wave++;
+            document.getElementById('wave').textContent = wave;
+            
+            if (wave > 10) {
+                victory();
+            } else {
+                setTimeout(() => {
+                    createEnemies();
+                    createShields();
+                }, 2000);
+            }
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            updatePlayer();
+            updateBullets();
+            updateEnemies();
+            updateParticles();
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawStars();
+            drawShields();
+            drawParticles();
+            drawEnemies();
+            drawBullets();
+            drawPlayer();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        function endGame() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalWave').textContent = wave;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function victory() {
+            gameRunning = false;
+            document.getElementById('victoryScore').textContent = score;
+            document.getElementById('victoryWave').textContent = wave - 1;
+            document.getElementById('victory').style.display = 'block';
+        }
+        
+        function restart() {
+            score = 0;
+            wave = 1;
+            lives = 3;
+            bullets = [];
+            enemyBullets = [];
+            particles = [];
+            enemyDirection = 1;
+            gameRunning = true;
+            
+            player.x = canvas.width / 2 - 25;
+            
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('victory').style.display = 'none';
+            
+            updateScore();
+            updateLives();
+            document.getElementById('wave').textContent = '1';
+            
+            createEnemies();
+            createShields();
+            gameLoop();
+        }
+        
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+        
+        // Ovládání
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            if (e.code === 'Space' && gameRunning) {
+                e.preventDefault();
+                shoot();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        setInterval(() => {
+            if (gameRunning) {
+                if (keys['ArrowLeft']) {
+                    player.x -= player.speed;
+                }
+                if (keys['ArrowRight']) {
+                    player.x += player.speed;
+                }
+            }
+        }, 16);
+        
+        // Start
+        createEnemies();
+        createShields();
+        updateLives();
+        gameLoop();
+    </script>
+</body>
+</html>
