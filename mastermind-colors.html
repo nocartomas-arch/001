@@ -1,603 +1,404 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mastermind Colors</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            font-family: 'Arial', sans-serif;
-        }
-        #gameContainer {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 40px;
-            border-radius: 30px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-            text-align: center;
-            max-width: 800px;
-        }
-        h1 {
-            color: #667eea;
-            font-size: 3em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-        }
-        .subtitle {
-            color: #666;
-            font-size: 1.2em;
-            margin-bottom: 30px;
-        }
-        #stats {
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-            gap: 20px;
-        }
-        .stat {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 15px 30px;
-            border-radius: 15px;
-            font-size: 20px;
-            font-weight: bold;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-        #board {
-            background: #f0f0f0;
-            padding: 30px;
-            border-radius: 20px;
-            margin: 20px 0;
-            box-shadow: inset 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-        .guess-row {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 15px 0;
-            gap: 15px;
-        }
-        .guess-slots {
-            display: flex;
-            gap: 10px;
-        }
-        .color-slot {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            border: 4px solid #ccc;
-            background: #fff;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-        .color-slot:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-        }
-        .color-slot.filled {
-            border-color: #333;
-        }
-        .feedback {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-            width: 80px;
-            justify-content: center;
-        }
-        .feedback-dot {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            border: 2px solid #666;
-        }
-        .feedback-dot.correct {
-            background: #4CAF50;
-        }
-        .feedback-dot.position {
-            background: #FFA500;
-        }
-        .feedback-dot.empty {
-            background: #ddd;
-        }
-        .row-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #667eea;
-            width: 40px;
-        }
-        .active-row {
-            background: rgba(102, 126, 234, 0.1);
-            padding: 10px;
-            border-radius: 15px;
-        }
-        #colorPalette {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin: 30px 0;
-            flex-wrap: wrap;
-        }
-        .palette-color {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            border: 4px solid #333;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-        .palette-color:hover {
-            transform: scale(1.15);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-        }
-        .palette-color.selected {
-            border-color: #FFD700;
-            border-width: 6px;
-            animation: pulse 0.5s;
-        }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-        button {
-            font-size: 20px;
-            padding: 15px 40px;
-            margin: 10px;
-            cursor: pointer;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            font-weight: bold;
-            box-shadow: 0 5px 0 #4a5ba8;
-            transition: all 0.1s;
-        }
-        button:hover {
-            background: linear-gradient(135deg, #5568d3, #6540a3);
-            transform: translateY(-2px);
-            box-shadow: 0 7px 0 #4a5ba8;
-        }
-        button:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 0 #4a5ba8;
-        }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        #solution {
-            display: none;
-            margin: 20px 0;
-        }
-        #solution .guess-slots {
-            justify-content: center;
-        }
-        #gameOver, #victory {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(102, 126, 234, 0.98);
-            padding: 50px;
-            border: 5px solid #FFD700;
-            border-radius: 30px;
-            color: white;
-            text-align: center;
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
-            z-index: 100;
-        }
-        #gameOver h2 {
-            color: #ff6b6b;
-            font-size: 48px;
-            margin-bottom: 20px;
-            text-shadow: 3px 3px 6px #000;
-        }
-        #victory h2 {
-            color: #FFD700;
-            font-size: 48px;
-            margin-bottom: 20px;
-            text-shadow: 3px 3px 6px #000;
-            animation: bounce 1s infinite;
-        }
-        @keyframes bounce {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-        .game-stats {
-            font-size: 24px;
-            margin: 20px 0;
-        }
-        #instructions {
-            background: #f0f0f0;
-            padding: 20px;
-            border-radius: 15px;
-            margin: 20px 0;
-            text-align: left;
-        }
-        #instructions h3 {
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-        #instructions ul {
-            margin-left: 20px;
-            line-height: 1.8;
-        }
-        .legend {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin: 20px 0;
-            font-size: 14px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Mastermind Colors (kompakt)</title>
+  <style>
+    :root{
+      /* velikosti */
+      --slot-active: 46px;
+      --slot-inactive: 28px;
+      --dot: 10px;
+      --gap-active: 12px;
+      --gap-inactive: 6px;
+      --palette: 44px;
+      --container-w: clamp(320px, 92vw, 720px);
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html, body{height:100%;overflow:hidden}
+    body{
+      display:flex;justify-content:center;align-items:center;
+      background:linear-gradient(135deg,#667eea 0%,#764ba2 50%,#f093fb 100%);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    }
+
+    #gameContainer{
+      width:var(--container-w);
+      max-height:96dvh; /* aby vše zůstalo v okně */
+      background:rgba(255,255,255,.95);
+      border-radius:24px;
+      padding:20px 20px 16px;
+      box-shadow:0 18px 50px rgba(0,0,0,.35);
+      display:flex;flex-direction:column;gap:12px;
+    }
+
+    h1{
+      color:#667eea;font-size:clamp(22px,4.2vw,36px);text-align:center;
+      text-shadow:2px 2px 4px rgba(0,0,0,.15);
+    }
+    .subtitle{color:#666;text-align:center;margin-top:2px;margin-bottom:6px}
+
+    #stats{
+      display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+    }
+    .stat{
+      background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;
+      padding:8px 14px;border-radius:12px;font-weight:700;
+      font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.18)
+    }
+
+    .legend{display:flex;justify-content:center;gap:18px;font-size:12px;color:#444}
+    .legend-item{display:flex;align-items:center;gap:8px}
+
+    #board{
+      background:#f4f4f6;border-radius:16px;padding:10px 10px;
+      box-shadow:inset 0 4px 12px rgba(0,0,0,.08);
+      overflow:auto; /* vlastní scroll jen pro board */
+      /* výška přizpůsobená tak, aby celý kontejner nepřesáhl viewport */
+      max-height: min(56dvh, 440px);
+    }
+
+    .guess-row{
+      display:grid;grid-template-columns:32px 1fr 64px;
+      align-items:center;
+      gap:10px;
+      padding:6px 8px;border-radius:12px;margin:4px 0;
+      transition:background .2s ease;
+    }
+    .guess-row.active-row{background:rgba(102,126,234,.10)}
+
+    .row-number{justify-self:center;color:#667eea;font-weight:700}
+
+    .guess-slots{display:flex;gap:var(--gap-active)}
+    .guess-row:not(.active-row) .guess-slots{gap:var(--gap-inactive)}
+
+    .color-slot{
+      width:var(--slot-active);height:var(--slot-active);
+      border-radius:50%;border:3px solid #cfcfd8;background:#fff;
+      cursor:pointer;transition:transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+      box-shadow:0 3px 6px rgba(0,0,0,.15)
+    }
+    .color-slot:hover{transform:scale(1.06)}
+    .color-slot.filled{border-color:#333}
+
+    /* kompakt pro neaktivní řádky */
+    .guess-row:not(.active-row) .color-slot{
+      width:var(--slot-inactive);height:var(--slot-inactive);
+      border-width:2px;box-shadow:0 2px 4px rgba(0,0,0,.12)
+    }
+
+    .feedback{display:grid;grid-template-columns:repeat(2, var(--dot));
+      grid-auto-rows:var(--dot);gap:6px;justify-content:center}
+    .feedback-dot{
+      width:var(--dot);height:var(--dot);border-radius:50%;
+      border:2px solid #666;background:#ddd
+    }
+    .feedback-dot.correct{background:#4CAF50}
+    .feedback-dot.position{background:#FFA500}
+
+    #colorPalette{
+      display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:6px;
+    }
+    .palette-color{
+      width:var(--palette);height:var(--palette);border-radius:50%;
+      border:3px solid #333;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.25);
+      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease
+    }
+    .palette-color:hover{transform:scale(1.07)}
+    .palette-color.selected{border-color:#FFD700;border-width:4px}
+
+    .btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px}
+    button{
+      font-size:14px;padding:10px 18px;border:none;border-radius:18px;
+      background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-weight:700;
+      box-shadow:0 4px 0 #4a5ba8;cursor:pointer
+    }
+    button:hover{transform:translateY(-1px)}
+    button:active{transform:translateY(1px);box-shadow:0 2px 0 #4a5ba8}
+    button:disabled{opacity:.55;cursor:not-allowed}
+
+    #solution{display:none;margin-top:6px}
+    #solution .guess-slots{justify-content:center}
+
+    /* Modály */
+    #gameOver,#victory{
+      display:none;position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);
+      background:rgba(102,126,234,.98);color:#fff;border:5px solid #FFD700;border-radius:22px;
+      padding:28px 24px;text-align:center;z-index:100;box-shadow:0 0 40px rgba(0,0,0,.55)
+    }
+    #gameOver h2{color:#ff6b6b}
+    #victory h2{color:#FFD700}
+
+    /* Sbalitelný návod, aby nezvětšoval výšku */
+    details#instructions{background:#f0f0f0;border-radius:14px;padding:10px 14px}
+    details summary{cursor:pointer;font-weight:700;color:#667eea;margin-bottom:6px}
+    details ul{margin-left:18px;line-height:1.6;color:#333;font-size:14px}
+  </style>
 </head>
 <body>
-    <div id="gameContainer">
-        <h1>🎨 MASTERMIND COLORS 🎨</h1>
-        <p class="subtitle">Uhádni tajnou kombinaci barev!</p>
-        
-        <div id="stats">
-            <div class="stat">🎯 Pokusy: <span id="attempts">0</span>/10</div>
-            <div class="stat">💎 Skóre: <span id="score">0</span></div>
-            <div class="stat">🏆 Série: <span id="streak">0</span></div>
-        </div>
-
-        <div class="legend">
-            <div class="legend-item">
-                <div class="feedback-dot correct"></div>
-                <span>Správná barva + pozice</span>
-            </div>
-            <div class="legend-item">
-                <div class="feedback-dot position"></div>
-                <span>Správná barva, špatná pozice</span>
-            </div>
-        </div>
-        
-        <div id="board"></div>
-        
-        <div id="colorPalette"></div>
-        
-        <button id="checkBtn" onclick="checkGuess()" disabled>✓ ZKONTROLOVAT</button>
-        <button id="clearBtn" onclick="clearCurrentGuess()">✗ VYMAZAT</button>
-        <button onclick="restart()">🔄 NOVÁ HRA</button>
-        
-        <div id="solution">
-            <h3>🎯 Správné řešení:</h3>
-            <div class="guess-slots" id="solutionSlots"></div>
-        </div>
-
-        <div id="instructions">
-            <h3>📖 Jak hrát:</h3>
-            <ul>
-                <li><strong>Cíl:</strong> Uhádněte tajnou kombinaci 4 barev</li>
-                <li><strong>Zpětná vazba:</strong>
-                    <ul>
-                        <li>🟢 Zelená tečka = správná barva na správné pozici</li>
-                        <li>🟠 Oranžová tečka = správná barva, ale špatná pozice</li>
-                    </ul>
-                </li>
-                <li><strong>Strategie:</strong> Používejte logiku a dedukci k určení správné kombinace</li>
-                <li><strong>Máte 10 pokusů</strong> na uhádnutí kombinace!</li>
-            </ul>
-        </div>
-        
-        <div id="gameOver">
-            <h2>😢 NEUHÁDL JSI!</h2>
-            <div class="game-stats">
-                💎 Skóre: <span id="finalScore">0</span><br>
-                🎯 Pokusy: <span id="finalAttempts">0</span>
-            </div>
-            <button onclick="restart()">🔄 ZKUSIT ZNOVU</button>
-            <button onclick="goHome()">🏠 MENU</button>
-        </div>
-        
-        <div id="victory">
-            <h2>🎉 GRATULUJI! 🎉</h2>
-            <div class="game-stats">
-                💎 Skóre: <span id="victoryScore">0</span><br>
-                🎯 Uhádnuto na: <span id="victoryAttempts">0</span>. pokus<br>
-                🏆 Série: <span id="victoryStreak">0</span>
-            </div>
-            <button onclick="restart()">🔄 DALŠÍ HRA</button>
-            <button onclick="goHome()">🏠 MENU</button>
-        </div>
+  <div id="gameContainer">
+    <div>
+      <h1>🎨 MASTERMIND COLORS</h1>
+      <p class="subtitle">Uhádni tajnou kombinaci barev!</p>
     </div>
 
-    <script>
-        const COLORS = [
-            { name: 'red', hex: '#FF0000' },
-            { name: 'blue', hex: '#0000FF' },
-            { name: 'green', hex: '#00FF00' },
-            { name: 'yellow', hex: '#FFFF00' },
-            { name: 'orange', hex: '#FF8C00' },
-            { name: 'purple', hex: '#9400D3' },
-            { name: 'pink', hex: '#FF1493' },
-            { name: 'cyan', hex: '#00FFFF' }
-        ];
-        
-        const MAX_ATTEMPTS = 10;
-        const CODE_LENGTH = 4;
-        
-        let secretCode = [];
-        let currentAttempt = 0;
-        let currentGuess = [];
-        let score = 0;
-        let streak = 0;
-        let selectedColor = null;
-        let guessHistory = [];
-        
-        function initGame() {
-            // Vygenerovat tajný kód
-            secretCode = [];
-            for (let i = 0; i < CODE_LENGTH; i++) {
-                secretCode.push(COLORS[Math.floor(Math.random() * COLORS.length)]);
-            }
-            console.log('Tajný kód:', secretCode.map(c => c.name)); // Pro testování
-            
-            // Vytvořit paletu barev
-            const palette = document.getElementById('colorPalette');
-            palette.innerHTML = '';
-            COLORS.forEach(color => {
-                const div = document.createElement('div');
-                div.className = 'palette-color';
-                div.style.background = color.hex;
-                div.onclick = () => selectColor(color);
-                palette.appendChild(div);
-            });
-            
-            // Vytvořit hrací desku
-            createBoard();
+    <div id="stats">
+      <div class="stat">🎯 Pokusy: <span id="attempts">0</span>/10</div>
+      <div class="stat">💎 Skóre: <span id="score">0</span></div>
+      <div class="stat">🏆 Série: <span id="streak">0</span></div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="feedback-dot correct"></span><span>Správná barva + pozice</span></div>
+      <div class="legend-item"><span class="feedback-dot position"></span><span>Správná barva, špatná pozice</span></div>
+    </div>
+
+    <div id="board"></div>
+    <div id="colorPalette"></div>
+
+    <div class="btns">
+      <button id="checkBtn" onclick="checkGuess()" disabled>✓ Zkontrolovat</button>
+      <button id="clearBtn" onclick="clearCurrentGuess()">✗ Vymazat</button>
+      <button onclick="restart()">🔄 Nová hra</button>
+    </div>
+
+    <div id="solution">
+      <h3>🎯 Správné řešení:</h3>
+      <div class="guess-slots" id="solutionSlots"></div>
+    </div>
+
+    <details id="instructions">
+      <summary>📖 Jak hrát</summary>
+      <ul>
+        <li><strong>Cíl:</strong> Uhádni tajnou kombinaci 4 barev.</li>
+        <li><strong>Zpětná vazba:</strong> 🟢 správná barva i pozice, 🟠 správná barva, jiná pozice.</li>
+        <li><strong>Máte 10 pokusů.</strong></li>
+      </ul>
+    </details>
+  </div>
+
+  <!-- Modály -->
+  <div id="gameOver">
+    <h2>😢 Neuhádl jsi!</h2>
+    <div class="game-stats">💎 Skóre: <span id="finalScore">0</span><br/>🎯 Pokusy: <span id="finalAttempts">0</span></div>
+    <div class="btns" style="justify-content:center;margin-top:8px">
+      <button onclick="restart()">🔄 Zkusit znovu</button>
+    </div>
+  </div>
+
+  <div id="victory">
+    <h2>🎉 Gratulace!</h2>
+    <div class="game-stats">💎 Skóre: <span id="victoryScore">0</span><br/>🎯 Na pokus: <span id="victoryAttempts">0</span><br/>🏆 Série: <span id="victoryStreak">0</span></div>
+    <div class="btns" style="justify-content:center;margin-top:8px">
+      <button onclick="restart()">🔄 Další hra</button>
+    </div>
+  </div>
+
+  <script>
+    const COLORS = [
+      { name:'red',    hex:'#FF0000' },
+      { name:'blue',   hex:'#0000FF' },
+      { name:'green',  hex:'#00FF00' },
+      { name:'yellow', hex:'#FFFF00' },
+      { name:'orange', hex:'#FF8C00' },
+      { name:'purple', hex:'#9400D3' },
+      { name:'pink',   hex:'#FF1493' },
+      { name:'cyan',   hex:'#00FFFF' }
+    ];
+
+    const MAX_ATTEMPTS = 10;
+    const CODE_LENGTH = 4;
+
+    let secretCode = [];
+    let currentAttempt = 0;
+    let currentGuess = [];
+    let score = 0;
+    let streak = 0;
+    let selectedColor = null;
+
+    const attemptsEl = document.getElementById('attempts');
+    const scoreEl    = document.getElementById('score');
+    const streakEl   = document.getElementById('streak');
+
+    function initGame(){
+      // tajný kód
+      secretCode = Array.from({length: CODE_LENGTH}, () => COLORS[Math.floor(Math.random()*COLORS.length)]);
+      // paleta
+      const palette = document.getElementById('colorPalette');
+      palette.innerHTML = '';
+      COLORS.forEach(color=>{
+        const div = document.createElement('div');
+        div.className='palette-color';
+        div.style.background = color.hex;
+        div.addEventListener('click', ()=>selectColor(color, div));
+        palette.appendChild(div);
+      });
+      // board
+      createBoard();
+      updateStats();
+    }
+
+    function createBoard(){
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      for(let i=0;i<MAX_ATTEMPTS;i++){
+        const row = document.createElement('div');
+        row.className = 'guess-row' + (i===currentAttempt?' active-row':'');
+        row.id = `row-${i}`;
+
+        const num = document.createElement('div');
+        num.className = 'row-number';
+        num.textContent = i+1;
+        row.appendChild(num);
+
+        const slots = document.createElement('div');
+        slots.className = 'guess-slots';
+        for(let j=0;j<CODE_LENGTH;j++){
+          const s = document.createElement('div');
+          s.className='color-slot';
+          s.addEventListener('click', ()=>fillSlot(i,j));
+          slots.appendChild(s);
         }
-        
-        function createBoard() {
-            const board = document.getElementById('board');
-            board.innerHTML = '';
-            
-            for (let i = 0; i < MAX_ATTEMPTS; i++) {
-                const row = document.createElement('div');
-                row.className = 'guess-row';
-                if (i === currentAttempt) {
-                    row.classList.add('active-row');
-                }
-                row.id = `row-${i}`;
-                
-                const rowNum = document.createElement('div');
-                rowNum.className = 'row-number';
-                rowNum.textContent = i + 1;
-                row.appendChild(rowNum);
-                
-                const slots = document.createElement('div');
-                slots.className = 'guess-slots';
-                
-                for (let j = 0; j < CODE_LENGTH; j++) {
-                    const slot = document.createElement('div');
-                    slot.className = 'color-slot';
-                    slot.onclick = () => fillSlot(i, j);
-                    slots.appendChild(slot);
-                }
-                
-                row.appendChild(slots);
-                
-                const feedback = document.createElement('div');
-                feedback.className = 'feedback';
-                for (let j = 0; j < CODE_LENGTH; j++) {
-                    const dot = document.createElement('div');
-                    dot.className = 'feedback-dot empty';
-                    feedback.appendChild(dot);
-                }
-                row.appendChild(feedback);
-                
-                board.appendChild(row);
-            }
+        row.appendChild(slots);
+
+        const feedback = document.createElement('div');
+        feedback.className='feedback';
+        for(let k=0;k<CODE_LENGTH;k++){
+          const d = document.createElement('div');
+          d.className='feedback-dot';
+          feedback.appendChild(d);
         }
-        
-        function selectColor(color) {
-            selectedColor = color;
-            
-            // Vizuální zpětná vazba
-            document.querySelectorAll('.palette-color').forEach(el => {
-                el.classList.remove('selected');
-            });
-            event.target.classList.add('selected');
+        row.appendChild(feedback);
+
+        board.appendChild(row);
+      }
+    }
+
+    function selectColor(color, el){
+      selectedColor = color;
+      document.querySelectorAll('.palette-color').forEach(p=>p.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function fillSlot(attempt, slot){
+      if(attempt!==currentAttempt || !selectedColor) return;
+      const row = document.getElementById(`row-${attempt}`);
+      const slotEl = row.querySelectorAll('.color-slot')[slot];
+      slotEl.style.background = selectedColor.hex;
+      slotEl.classList.add('filled');
+      currentGuess[slot] = selectedColor;
+      document.getElementById('checkBtn').disabled = currentGuess.filter(Boolean).length !== CODE_LENGTH;
+    }
+
+    function clearCurrentGuess(){
+      currentGuess = [];
+      const row = document.getElementById(`row-${currentAttempt}`);
+      row.querySelectorAll('.color-slot').forEach(s=>{
+        s.style.background = '#fff';
+        s.classList.remove('filled');
+      });
+      document.getElementById('checkBtn').disabled = true;
+    }
+
+    function calculateFeedback(guess, secret){
+      const fb = {correct:0, position:0};
+      const s = secret.map(c=>c.name);
+      const g = guess.map(c=>c?.name ?? null);
+
+      // správná pozice
+      for(let i=CODE_LENGTH-1;i>=0;i--){
+        if(g[i] && g[i]===s[i]){
+          fb.correct++; g.splice(i,1); s.splice(i,1);
         }
-        
-        function fillSlot(attempt, slot) {
-            if (attempt !== currentAttempt || !selectedColor) return;
-            
-            const row = document.getElementById(`row-${attempt}`);
-            const slotEl = row.querySelectorAll('.color-slot')[slot];
-            
-            slotEl.style.background = selectedColor.hex;
-            slotEl.classList.add('filled');
-            
-            currentGuess[slot] = selectedColor;
-            
-            // Povolit tlačítko zkontrolovat, pokud jsou všechny sloty vyplněné
-            document.getElementById('checkBtn').disabled = currentGuess.filter(c => c).length !== CODE_LENGTH;
-        }
-        
-        function clearCurrentGuess() {
-            currentGuess = [];
-            const row = document.getElementById(`row-${currentAttempt}`);
-            row.querySelectorAll('.color-slot').forEach(slot => {
-                slot.style.background = '#fff';
-                slot.classList.remove('filled');
-            });
-            document.getElementById('checkBtn').disabled = true;
-        }
-        
-        function checkGuess() {
-            if (currentGuess.filter(c => c).length !== CODE_LENGTH) return;
-            
-            const feedback = calculateFeedback(currentGuess, secretCode);
-            displayFeedback(currentAttempt, feedback);
-            
-            guessHistory.push({
-                guess: [...currentGuess],
-                feedback: feedback
-            });
-            
-            // Kontrola výhry
-            if (feedback.correct === CODE_LENGTH) {
-                win();
-                return;
-            }
-            
-            currentAttempt++;
-            document.getElementById('attempts').textContent = currentAttempt;
-            
-            // Kontrola prohry
-            if (currentAttempt >= MAX_ATTEMPTS) {
-                lose();
-                return;
-            }
-            
-            // Připravit další pokus
-            currentGuess = [];
-            selectedColor = null;
-            document.querySelectorAll('.palette-color').forEach(el => {
-                el.classList.remove('selected');
-            });
-            
-            // Aktualizovat aktivní řádek
-            document.querySelectorAll('.guess-row').forEach(row => {
-                row.classList.remove('active-row');
-            });
-            document.getElementById(`row-${currentAttempt}`).classList.add('active-row');
-            
-            document.getElementById('checkBtn').disabled = true;
-        }
-        
-        function calculateFeedback(guess, secret) {
-            const feedback = { correct: 0, position: 0 };
-            const secretCopy = [...secret];
-            const guessCopy = [...guess];
-            
-            // Najít správné pozice
-            for (let i = CODE_LENGTH - 1; i >= 0; i--) {
-                if (guessCopy[i] && guessCopy[i].name === secretCopy[i].name) {
-                    feedback.correct++;
-                    secretCopy.splice(i, 1);
-                    guessCopy.splice(i, 1);
-                }
-            }
-            
-            // Najít správné barvy na špatných pozicích
-            for (let i = 0; i < guessCopy.length; i++) {
-                if (guessCopy[i]) {
-                    const index = secretCopy.findIndex(c => c && c.name === guessCopy[i].name);
-                    if (index !== -1) {
-                        feedback.position++;
-                        secretCopy.splice(index, 1);
-                    }
-                }
-            }
-            
-            return feedback;
-        }
-        
-        function displayFeedback(attempt, feedback) {
-            const row = document.getElementById(`row-${attempt}`);
-            const dots = row.querySelectorAll('.feedback-dot');
-            
-            let index = 0;
-            
-            // Zelené tečky (správná pozice)
-            for (let i = 0; i < feedback.correct; i++) {
-                dots[index].classList.remove('empty');
-                dots[index].classList.add('correct');
-                index++;
-            }
-            
-            // Oranžové tečky (správná barva, špatná pozice)
-            for (let i = 0; i < feedback.position; i++) {
-                dots[index].classList.remove('empty');
-                dots[index].classList.add('position');
-                index++;
-            }
-        }
-        
-        function win() {
-            const baseScore = (MAX_ATTEMPTS - currentAttempt) * 100;
-            score += baseScore;
-            streak++;
-            
-            document.getElementById('victoryScore').textContent = score;
-            document.getElementById('victoryAttempts').textContent = currentAttempt + 1;
-            document.getElementById('victoryStreak').textContent = streak;
-            document.getElementById('victory').style.display = 'block';
-            
-            updateStats();
-        }
-        
-        function lose() {
-            streak = 0;
-            
-            // Ukázat řešení
-            const solutionDiv = document.getElementById('solution');
-            const solutionSlots = document.getElementById('solutionSlots');
-            solutionSlots.innerHTML = '';
-            
-            secretCode.forEach(color => {
-                const slot = document.createElement('div');
-                slot.className = 'color-slot filled';
-                slot.style.background = color.hex;
-                solutionSlots.appendChild(slot);
-            });
-            
-            solutionDiv.style.display = 'block';
-            
-            document.getElementById('finalScore').textContent = score;
-            document.getElementById('finalAttempts').textContent = currentAttempt;
-            document.getElementById('gameOver').style.display = 'block';
-            
-            updateStats();
-        }
-        
-        function updateStats() {
-            document.getElementById('score').textContent = score;
-            document.getElementById('streak').textContent = streak;
-            document.getElementById('attempts').textContent = currentAttempt;
-        }
-        
-        function restart() {
-            currentAttempt = 0;
-            currentGuess = [];
-            selectedColor = null;
-            guessHistory = [];
-            
-            document.getElementById('gameOver').style.display = 'none';
-            document.getElementById('victory').style.display = 'none';
-            document.getElementById('solution').style.display = 'none';
-            document.getElementById('checkBtn').disabled = true;
-            
-            updateStats();
-            initGame();
-        }
-        
-        function goHome() {
-            window.location.href = 'index.html';
-        }
-        
-        // Start hry
-        initGame();
-    </script>
+      }
+      // správná barva jinde
+      for(const c of g){
+        if(!c) continue;
+        const idx = s.indexOf(c);
+        if(idx>-1){ fb.position++; s.splice(idx,1);}
+      }
+      return fb;
+    }
+
+    function displayFeedback(attempt, fb){
+      const row = document.getElementById(`row-${attempt}`);
+      const dots = row.querySelectorAll('.feedback-dot');
+      let k=0;
+      for(let i=0;i<fb.correct;i++){ dots[k].classList.add('correct'); k++; }
+      for(let i=0;i<fb.position;i++){ dots[k].classList.add('position'); k++; }
+    }
+
+    function checkGuess(){
+      if(currentGuess.filter(Boolean).length !== CODE_LENGTH) return;
+      const fb = calculateFeedback(currentGuess, secretCode);
+      displayFeedback(currentAttempt, fb);
+
+      if(fb.correct === CODE_LENGTH){ return win(); }
+
+      currentAttempt++;
+      attemptsEl.textContent = currentAttempt;
+
+      if(currentAttempt >= MAX_ATTEMPTS){ return lose(); }
+
+      // připrav další pokus
+      currentGuess = [];
+      document.querySelectorAll('.palette-color').forEach(p=>p.classList.remove('selected'));
+      selectedColor=null;
+      document.querySelectorAll('.guess-row').forEach(r=>r.classList.remove('active-row'));
+      document.getElementById(`row-${currentAttempt}`).classList.add('active-row');
+      document.getElementById('checkBtn').disabled = true;
+    }
+
+    function win(){
+      const base = (MAX_ATTEMPTS - currentAttempt) * 100;
+      score += base; streak++;
+      document.getElementById('victoryScore').textContent = score;
+      document.getElementById('victoryAttempts').textContent = currentAttempt + 1;
+      document.getElementById('victoryStreak').textContent = streak;
+      document.getElementById('victory').style.display='block';
+      updateStats();
+    }
+
+    function lose(){
+      streak = 0;
+      // řešení
+      const sol = document.getElementById('solution');
+      const slots = document.getElementById('solutionSlots');
+      slots.innerHTML='';
+      secretCode.forEach(c=>{
+        const s=document.createElement('div');
+        s.className='color-slot filled';
+        s.style.background=c.hex;
+        slots.appendChild(s);
+      });
+      sol.style.display='block';
+
+      document.getElementById('finalScore').textContent = score;
+      document.getElementById('finalAttempts').textContent = currentAttempt;
+      document.getElementById('gameOver').style.display='block';
+      updateStats();
+    }
+
+    function updateStats(){
+      scoreEl.textContent = score;
+      streakEl.textContent = streak;
+      attemptsEl.textContent = currentAttempt;
+    }
+
+    function restart(){
+      currentAttempt=0;
+      currentGuess=[]; selectedColor=null;
+      document.getElementById('gameOver').style.display='none';
+      document.getElementById('victory').style.display='none';
+      document.getElementById('solution').style.display='none';
+      document.getElementById('checkBtn').disabled = true;
+      initGame();
+    }
+
+    // start
+    initGame();
+  </script>
 </body>
 </html>
