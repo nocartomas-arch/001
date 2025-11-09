@@ -1,412 +1,466 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Turbo Racer</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{
-      display:flex;justify-content:center;align-items:center;
-      min-height:100vh;background:#0b0b0f;font-family:Arial,Helvetica,sans-serif;color:#0f0;
-      overflow:hidden
-    }
-    #gameContainer{position:relative;text-align:center}
-    h1{color:#0f0;text-shadow:0 0 12px #0f0;letter-spacing:1px;margin-bottom:8px}
-    #gameCanvas{
-      display:block;margin:10px auto;border:3px solid #0f0;box-shadow:0 0 24px rgba(0,255,0,.35);
-      background:#1a1a1e
-    }
-    #hud{
-      position:absolute;top:10px;left:10px;right:10px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;pointer-events:none
-    }
-    .stat{
-      pointer-events:none; background:rgba(0,255,0,.08);border:1px solid #0f0;border-radius:10px;
-      padding:8px 14px;font-weight:700;text-shadow:0 0 8px #0f0;min-width:140px
-    }
-    #gameOver,#startScreen{
-      position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;
-      background:rgba(0,0,0,.65);backdrop-filter:blur(2px)
-    }
-    #gameOver{display:none}
-    .panel{
-      background:#101014;border:2px solid #0f0;border-radius:16px;padding:28px 28px;box-shadow:0 0 20px rgba(0,255,0,.25);min-width:340px;color:#e5ffe5
-    }
-    .panel h2{color:#0f0;margin-bottom:8px;text-shadow:0 0 12px #0f0}
-    .btn{
-      margin-top:12px;font-weight:700;cursor:pointer;border:none;border-radius:10px;padding:12px 20px;
-      background:#0f0;color:#000;box-shadow:0 6px 0 #0a9e0a;transition:transform .06s ease,box-shadow .06s ease
-    }
-    .btn:hover{transform:translateY(-2px);box-shadow:0 8px 0 #0a9e0a}
-    .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #0a9e0a}
-    #message{
-      position:absolute;top:60px;left:50%;transform:translateX(-50%);color:#fff;text-shadow:0 0 10px #fff;
-      font-weight:700;font-size:18px;opacity:0;transition:opacity .25s ease
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TURBO RACER</title>
+<style>
+  :root{
+    --neon:#00ff5a; --neon-dim:#00c344; --hud:#0a0f0a; --lane:#2a2f2a; --road:#141715;
+    --car:#b71c1c; --car2:#c62828; --enemy:#a91f2f; --enemy-dark:#7b1522; --power:#ffd000;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:#0b0d0c radial-gradient(ellipse at center, #0c0f0d 0%, #050605 100%) no-repeat;
+    font-family: "Courier New", monospace; color:var(--neon);
+  }
+  #wrap{position:relative}
+  #game{
+    width:1000px; height:600px; display:block; border:4px solid var(--neon);
+    box-shadow:0 0 35px rgba(0,255,120,.25), inset 0 0 20px rgba(0,255,120,.15);
+    background:var(--road);
+  }
+  #hud{
+    position:absolute; top:-56px; left:0; right:0; display:flex; gap:18px; justify-content:center;
+    filter: drop-shadow(0 0 6px rgba(0,255,120,.4));
+  }
+  .pill{
+    background:rgba(0,0,0,.75); color:var(--neon); border:2px solid var(--neon-dim);
+    border-radius:14px; padding:8px 14px; font-weight:700; letter-spacing:.5px;
+  }
+  #pauseHint{position:absolute; top:10px; right:12px; font-size:12px; opacity:.7}
+  #centerMsg{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;
+    color:#eafff2; font-size:22px; text-align:center; text-shadow:0 0 12px rgba(0,255,120,.6);
+  }
+  #modal{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.45);
+  }
+  .dialog{
+    background:#08110b; border:3px solid var(--neon); border-radius:16px; padding:24px 28px;
+    color:#d9ffe8; text-align:center; box-shadow:0 0 28px rgba(0,255,120,.35);
+    min-width:360px;
+  }
+  .dialog h2{color:var(--neon); margin-bottom:8px; text-shadow:0 0 12px rgba(0,255,120,.7)}
+  .dialog .stats{margin:10px 0 16px 0; line-height:1.6}
+  button{
+    background:var(--neon); color:#031006; border:none; border-radius:10px; font-weight:800;
+    padding:10px 18px; margin:4px 6px; cursor:pointer; box-shadow:0 4px 0 var(--neon-dim);
+  }
+  button:hover{transform:translateY(-1px)}
+  #legend{
+    position:absolute; bottom:-42px; width:100%; text-align:center; color:#9fffc7; font-size:12px;
+    opacity:.8
+  }
+</style>
 </head>
 <body>
-  <div id="gameContainer">
-    <h1>TURBO RACER</h1>
-    <!-- širší okno, více pruhů: 1200 x 600 -->
-    <canvas id="gameCanvas" width="1200" height="600"></canvas>
+<div id="wrap">
+  <canvas id="game" width="1000" height="600"></canvas>
+  <div id="hud">
+    <div class="pill">🕹️ Level: <span id="lvl">1</span></div>
+    <div class="pill">🚗 Rychlost: <span id="spd">80</span> km/h</div>
+    <div class="pill">⚡ Boost: <span id="boost">0</span>%</div>
+    <div class="pill">💥 Kolize: <span id="hits">0</span></div>
+    <div class="pill">📏 Vzdál.: <span id="dist">0.00</span> km</div>
+  </div>
+  <div id="pauseHint">P = pauza • R = restart</div>
+  <div id="centerMsg">Šipky ← → mění pruh • ↑ aktivuje turbo (pokud máš ⚡)</div>
 
-    <div id="hud">
-      <div class="stat">🏁 Level: <span id="level">1</span></div>
-      <div class="stat">🚗 Rychlost: <span id="speed">120</span> km/h</div>
-      <div class="stat">📏 Vzdálenost: <span id="distance">0.00</span> km</div>
-      <div class="stat">⚡ Boost: <span id="boost">0%</span></div>
-      <div class="stat">💥 Kolize: <span id="crashes">0</span></div>
-    </div>
-
-    <div id="message"></div>
-
-    <div id="startScreen">
-      <div class="panel">
-        <h2>Připraven?</h2>
-        <p>Šipky: ← → mezi pruhy, ↑/↓ rychlý posun po okně (vpřed/vzad).<br>
-          Vyhýbej se provozu a sbírej ⚡ pro dočasný turbo boost.</p>
-        <button class="btn" id="startBtn">START</button>
-      </div>
-    </div>
-
-    <div id="gameOver">
-      <div class="panel">
-        <h2>KONEC HRY</h2>
-        <p>Level: <span id="finalLevel">1</span> • Vzdálenost: <span id="finalDistance">0.00</span> km</p>
-        <p>Max rychlost: <span id="finalSpeed">0</span> km/h • Kolize: <span id="finalCrashes">0</span></p>
-        <button class="btn" id="restartBtn">HRÁT ZNOVU</button>
-      </div>
+  <div id="modal">
+    <div class="dialog">
+      <h2>KONEC HRY</h2>
+      <div class="stats" id="summary"></div>
+      <button id="again">HRÁT ZNOVU</button>
     </div>
   </div>
 
-  <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+  <div id="legend">Vyhýbej se autům, sbírej ⚡ blesky pro turbo. Level roste s ujetou vzdáleností.</div>
+</div>
 
-    // ----- Parametry dálnice -----
-    const LANES = 6;                         // více pruhů
-    const ROAD_MARGIN = 150;                 // okraje trávy
-    const ROAD_WIDTH = canvas.width - ROAD_MARGIN*2;
-    const LANE_W = ROAD_WIDTH / LANES;
+<script>
+(() => {
+  const cv = document.getElementById('game');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
 
-    // ----- Hráč -----
-    const player = {
-      lane: Math.floor(LANES/2),
-      x: 0, y: 0, w: LANE_W*0.6, h: 80,
-      color: '#00ff88',
-      vx: 0, vy: 0,
-      maxSideSpeed: 9, maxVertSpeed: 12
-    };
+  // --- Parametry hry ---
+  const lanesCount = 6;                       // víc pruhů
+  const laneW = W * 0.75 / lanesCount;        // šířka pruhu (silnice je ~75 % plátna)
+  const roadLeft = (W - laneW*lanesCount)/2;
+  const roadRight = roadLeft + laneW*lanesCount;
+  const laneMarkH = 20;
 
-    // ----- Hra / fyzika -----
-    let running = false;
-    let level = 1;
-    let baseSpeed = 120;        // km/h (základ)
-    let speed = baseSpeed;      // aktuální (km/h)
-    let pxPerMs = 0;            // přepočet na pixely (z km/h)
-    let distanceKm = 0;         // ujetá vzdálenost v km
-    let crashes = 0;
+  const baseSpawnInterval = 950;              // ms – základní spawn nepřátel
+  const trafficHoles = 0.45;                  // pravděpodobnost vynechání, aby šly projet mezery
+  const maxHits = 5;
 
-    // levelování podle vzdálenosti
-    const LEVEL_DISTANCE_STEP = 1.5; // každých 1.5 km level up
-    let nextLevelAt = LEVEL_DISTANCE_STEP;
+  // Rychlosti
+  let level = 1;
+  let speedKmh = 80;                          // aktuální rychlost hráče
+  let maxSpeedKmh = 80;
+  const minSpeedKmh = 60;
+  const levelUpEveryKm = 1.2;                 // každých X km level++
+  const speedPerLevel = 12;                   // přídavek k cílové rychlosti na level
+  const boostSpeed = 60;                      // dodatečných km/h při turbu
+  let boostMeter = 0;                         // 0–100
+  let boostActive = false;
 
-    // turbo boost po ⚡
-    let boostTime = 0;          // ms zbývajícího boostu
-    const BOOST_ADD = 3000;     // 3s za jeden blesk
-    const BOOST_FACTOR = 1.35;
+  // Stav
+  let running = true, paused = false, gameOver = false;
+  let lastTime = performance.now();
+  let distKm = 0;
+  let hits = 0;
+  let spawnTimer = 0, powerTimer = 0;
 
-    // spawn
-    const cars = [];
-    const pickups = []; // ⚡
-    let lastSpawnCar = 0;
-    let lastSpawnPickup = 0;
+  // Hráč
+  const player = {
+    lane: Math.floor(lanesCount/2),
+    y: H - 110,
+    w: Math.min(56, laneW*0.66),
+    h: 96,
+    moveToLane: null
+  };
 
-    // vstup
-    const keys = {};
-    document.addEventListener('keydown', e => keys[e.key] = true);
-    document.addEventListener('keyup',   e => keys[e.key] = false);
+  // Kolekce
+  const enemies = [];
+  const powers = []; // blesky
 
-    // HUD
-    const elLevel = document.getElementById('level');
-    const elSpeed = document.getElementById('speed');
-    const elDist  = document.getElementById('distance');
-    const elBoost = document.getElementById('boost');
-    const elCr    = document.getElementById('crashes');
+  // --- Pomocné UI ---
+  const ui = (id,v)=>document.getElementById(id).textContent = v.toString();
+  const fmt = n => (Math.round(n*100)/100).toFixed(2);
 
-    const elMsg   = document.getElementById('message');
+  // --- Vykreslování silnice ---
+  function drawRoad(){
+    // krajnice
+    ctx.fillStyle = '#0c160e';
+    ctx.fillRect(0,0, roadLeft, H);
+    ctx.fillRect(roadRight,0, W-roadRight, H);
 
-    // Start/Restart
-    document.getElementById('startBtn').onclick = startGame;
-    document.getElementById('restartBtn').onclick = () => {
-      document.getElementById('gameOver').style.display = 'none';
-      startGame();
-    };
+    // asfalt
+    ctx.fillStyle = '#101413';
+    ctx.fillRect(roadLeft,0, laneW*lanesCount, H);
 
-    // Přepočet rychlosti km/h -> px/ms (poměrné, vizelní)
-    function speedToPxPerMs(kmh){
-      // 1 "vizuální kilometr" = 1800 px;  km/h -> px/h -> px/ms
-      return (kmh * 1800) / (60*60*1000);
+    // dělicí čáry
+    ctx.strokeStyle = '#9aa49c2a';
+    ctx.lineWidth = 6;
+    ctx.setLineDash([laneMarkH, laneMarkH]);
+    for(let i=1;i<lanesCount;i++){
+      const x = roadLeft + i*laneW;
+      ctx.beginPath();
+      ctx.moveTo(x,0); ctx.lineTo(x,H);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
+  // --- Autíčko (vzhled 80s) ---
+  function drawCar(x,y,w,h, body='#a91f2f', dark='#7b1522'){
+    const r = 10;
+    // stín
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.fillRect(x+3,y+6,w, h);
+    // tělo
+    ctx.fillStyle = body;
+    roundRect(x,y,w,h,r,true,false);
+
+    // kapota + kufr
+    ctx.fillStyle = dark;
+    roundRect(x+6,y+6,w-12, h*0.22, r, true,false);
+    roundRect(x+6,y+h*0.72,w-12, h*0.22, r, true,false);
+
+    // skla
+    ctx.fillStyle = '#c7e6ff';
+    roundRect(x+10,y+h*0.3, w-20, h*0.22, 6, true,false);
+
+    // kola
+    ctx.fillStyle = '#0b0b0b';
+    ctx.fillRect(x-3,y+10, 8, h*0.32);
+    ctx.fillRect(x+w-5,y+10, 8, h*0.32);
+    ctx.fillRect(x-3,y+h*0.62, 8, h*0.28);
+    ctx.fillRect(x+w-5,y+h*0.62, 8, h*0.28);
+  }
+  function roundRect(x,y,w,h,r,fill,stroke){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y, x+w,y+h, r);
+    ctx.arcTo(x+w,y+h, x,y+h, r);
+    ctx.arcTo(x,y+h, x,y, r);
+    ctx.arcTo(x,y, x+w,y, r);
+    if(fill) ctx.fill(); if(stroke) ctx.stroke();
+  }
+
+  // --- Hráč ---
+  function playerXForLane(l){ return roadLeft + l*laneW + (laneW-player.w)/2; }
+  function drawPlayer(){
+    const px = playerXForLane(player.lane);
+    // hladký dojezd do cíle pruhu
+    if(player.moveToLane!==null){
+      const targetX = playerXForLane(player.moveToLane);
+      const curX = px;
+      const dx = Math.sign(targetX-curX) * Math.min(10, Math.abs(targetX-curX));
+      if(Math.abs(targetX-curX)<=10){ player.lane = player.moveToLane; player.moveToLane=null; }
+      else { // přechod – posuneme „vizuální pozici“
+        const tmpX = curX + dx;
+        drawCar(tmpX, player.y, player.w, player.h, '#1aa85a', '#118d48');
+        return;
+      }
+    }
+    drawCar(px, player.y, player.w, player.h, '#1aa85a', '#118d48');
+  }
+
+  // --- Nepřátelé a powerupy ---
+  function spawnRow(){
+    // vytvoříme jednu „vlnu“ aut s minimálně jedním volným pruhem
+    const freeLane = Math.floor(Math.random()*lanesCount);
+    for(let l=0;l<lanesCount;l++){
+      if(Math.random()<trafficHoles || l===freeLane) continue; // udělej mezery
+      enemies.push({
+        lane:l,
+        x: playerXForLane(l),
+        y: -120 - Math.random()*80,
+        w: Math.min(54, laneW*0.62),
+        h: 92,
+        spd: (speedKmh*0.28) + 60 + Math.random()*50, // px/s; trochu závisí na hráči
+        color: Math.random()<.5 ? ['#b71c1c','#7b1522'] : ['#c62828','#8e1d1d']
+      });
+    }
+    // šance na blesk
+    if(Math.random()<0.35){
+      const l = Math.floor(Math.random()*lanesCount);
+      powers.push({
+        lane:l, x:playerXForLane(l)+(player.w-26)/2, y:-80, size:26, spd:(speedKmh*0.3)+90
+      });
+    }
+  }
+
+  // --- Fyzika / logika ---
+  function update(dt){
+    if(!running || paused) return;
+
+    // km/h -> px/s (měřítko zvolíme: 1 px ~ 0.06 m => 1 km ~ 16666 px pro pocit rychlosti)
+    const PX_PER_KM = 16666; // na plátně
+    const ms = dt;
+    const pxPerMs = (speedKmh * (1000/3600)) / (1000/PX_PER_KM); // px/ms
+    distKm += (speedKmh * (ms/3600000)); // fyzicky správně do statistik
+
+    // Level up
+    const newLevel = 1 + Math.floor(distKm / levelUpEveryKm);
+    if(newLevel>level){
+      level = newLevel;
+      // zvedni cílovou rychlost
+      const target = minSpeedKmh + (level-1)*speedPerLevel;
+      maxSpeedKmh = Math.max(maxSpeedKmh, target);
+      // lehce zrychli spawner
+      spawnInterval = Math.max(450, baseSpawnInterval - level*40);
+      // krátká zpráva
+      centerFlash(`Level ${level}!`);
     }
 
-    function laneCenter(l){ return ROAD_MARGIN + l*LANE_W + LANE_W/2; }
-
-    function resetState(){
-      level = 1;
-      baseSpeed = 120;
-      speed = baseSpeed;
-      pxPerMs = speedToPxPerMs(speed);
-      distanceKm = 0;
-      nextLevelAt = LEVEL_DISTANCE_STEP;
-      crashes = 0;
-      cars.length = 0;
-      pickups.length = 0;
-      boostTime = 0;
-      player.lane = Math.floor(LANES/2);
-      player.x = laneCenter(player.lane) - player.w/2;
-      player.y = canvas.height - 120;
-      player.vx = player.vy = 0;
-      lastSpawnCar = lastSpawnPickup = 0;
-      updateHUD();
+    // Plynulá akcelerace k maxSpeedKmh
+    if(speedKmh < maxSpeedKmh) speedKmh += 0.08 * dt;
+    if(boostActive){
+      speedKmh = Math.min(maxSpeedKmh + boostSpeed, speedKmh + 0.22*dt);
+      boostMeter = Math.max(0, boostMeter - 0.035*dt);
+      if(boostMeter<=0) boostActive=false;
+    }else{
+      speedKmh = Math.max(minSpeedKmh, speedKmh - 0.04*dt); // lehké opadnutí
     }
 
-    function startGame(){
-      resetState();
-      running = true;
-      document.getElementById('startScreen').style.display = 'none';
-      lastTime = performance.now();
-      requestAnimationFrame(loop);
-      popMsg('GO!');
+    // Spawnování
+    spawnTimer += dt;
+    if(spawnTimer >= spawnInterval){
+      spawnTimer = 0;
+      spawnRow();
     }
 
-    function gameOver(){
-      running = false;
-      document.getElementById('finalLevel').textContent = level;
-      document.getElementById('finalDistance').textContent = distanceKm.toFixed(2);
-      document.getElementById('finalSpeed').textContent = Math.round(speed);
-      document.getElementById('finalCrashes').textContent = crashes;
-      document.getElementById('gameOver').style.display = 'flex';
+    // Pohyb nepřátel
+    for(let i=enemies.length-1;i>=0;i--){
+      const e = enemies[i];
+      e.y += e.spd * (dt/1000);
+      // kolize
+      if( Math.abs(e.lane - player.lane) < 0.1 ){
+        const px = playerXForLane(player.lane);
+        if(rectsOverlap(px, player.y, player.w, player.h, e.x, e.y, e.w, e.h)){
+          enemies.splice(i,1);
+          bump();
+          continue;
+        }
+      }
+      if(e.y > H+120) enemies.splice(i,1);
     }
 
-    // ---------- Spawny ----------
-    function spawnCar(){
-      const w = LANE_W*0.58;
-      const h = 86;
-      const lane = Math.floor(Math.random()*LANES);
-      const x = laneCenter(lane) - w/2;
-      const y = -h - 20;
-
-      // rychlost překážek roste s levelem
-      const minKmh = 90 + level*6;
-      const maxKmh = 140 + level*10;
-      const carSpeed = (Math.random()*(maxKmh-minKmh)+minKmh);
-      const vy = speedToPxPerMs(carSpeed);
-
-      cars.push({x,y,w,h,lane,vy,color:'#ff2d55'});
+    // Pohyb blesků
+    for(let i=powers.length-1;i>=0;i--){
+      const p = powers[i];
+      p.y += p.spd * (dt/1000);
+      if( Math.abs(p.lane - player.lane) < 0.1 ){
+        const px = playerXForLane(player.lane);
+        if(rectsOverlap(px, player.y, player.w, player.h, p.x, p.y, p.size, p.size)){
+          powers.splice(i,1);
+          // doplnit boost metr + krátký auto-boost
+          boostMeter = Math.min(100, boostMeter + 35);
+          boostActive = true;
+          centerFlash('⚡ TURBO!');
+          continue;
+        }
+      }
+      if(p.y>H+60) powers.splice(i,1);
     }
 
-    function spawnPickup(){
-      // ⚡ v náhodném pruhu, pomaleji než auta (aby se daly sebrat)
-      const size = 28;
-      const lane = Math.floor(Math.random()*LANES);
-      const x = laneCenter(lane) - size/2;
-      const y = -size - 10;
-      const vy = speedToPxPerMs(80 + level*5);
-      pickups.push({x,y,w:size,h:size,lane,vy});
+    // UI
+    ui('lvl', level);
+    ui('spd', Math.round(speedKmh));
+    ui('boost', Math.round(boostMeter));
+    ui('hits', hits);
+    ui('dist', fmt(distKm));
+
+    // Konec?
+    if(hits >= maxHits) finish();
+  }
+
+  function bump(){
+    hits++;
+    maxSpeedKmh = Math.max(minSpeedKmh, maxSpeedKmh - 10);
+    speedKmh = Math.max(minSpeedKmh, speedKmh - 25);
+    centerFlash('💥 Kolize!');
+  }
+
+  function rectsOverlap(x1,y1,w1,h1, x2,y2,w2,h2){
+    return !(x1+w1<x2 || x2+w2<x1 || y1+h1<y2 || y2+h2<y1);
+  }
+
+  // --- Vykreslování ---
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    drawRoad();
+
+    // pruhy pohybu (parallax dle rychlosti)
+    const offset = (performance.now()/8) % (laneMarkH*2);
+    ctx.strokeStyle = '#1aff7a22';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([laneMarkH, laneMarkH]);
+    ctx.lineDashOffset = -offset;
+    ctx.beginPath(); ctx.moveTo(roadLeft+laneW*0.5, 0); ctx.lineTo(roadLeft+laneW*0.5, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(roadRight-laneW*0.5, 0); ctx.lineTo(roadRight-laneW*0.5, H); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // blesky
+    for(const p of powers){
+      drawPower(p.x, p.y, p.size);
     }
 
-    // ---------- Update / Draw ----------
-    let lastTime = 0;
+    // nepřátelé
+    for(const e of enemies){
+      drawCar(e.x, e.y, e.w, e.h, e.color[0], e.color[1]);
+    }
 
-    function loop(t){
-      if(!running) return;
-      const dt = Math.min(32, t - lastTime); // ms (cap pro stabilitu)
-      lastTime = t;
+    // hráč
+    drawPlayer();
 
+    // okraje neon
+    ctx.strokeStyle = 'rgba(0,255,120,.35)';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(3,3,W-6,H-6);
+  }
+
+  function drawPower(x,y,s){
+    // blesk
+    ctx.save();
+    ctx.translate(x+s/2, y+s/2);
+    ctx.rotate(Math.sin(performance.now()/200)*0.1);
+    ctx.translate(-s/2, -s/2);
+    ctx.fillStyle = 'rgba(255,208,0,.9)';
+    ctx.beginPath();
+    ctx.moveTo(s*0.15,0); ctx.lineTo(s*0.7,0); ctx.lineTo(s*0.35,s*0.55);
+    ctx.lineTo(s*0.85, s*0.55); ctx.lineTo(s*0.25,s); ctx.lineTo(s*0.45,s*0.45);
+    ctx.lineTo(s*0.1,s*0.45); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // záře
+    ctx.shadowColor = '#ffd000'; ctx.shadowBlur = 12;
+  }
+
+  // --- Game loop ---
+  let spawnInterval = baseSpawnInterval;
+  function loop(t){
+    const dt = Math.min(40, t - lastTime); // clamp
+    lastTime = t;
+    if(!paused && running) {
       update(dt);
       draw();
-
-      requestAnimationFrame(loop);
     }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
 
-    function update(dt){
-      // řízení hráče
-      const side = (keys['ArrowLeft']?-1:0) + (keys['ArrowRight']?1:0);
-      const vert = (keys['ArrowUp']?-1:0) + (keys['ArrowDown']?1:0);
-
-      player.vx = side * player.maxSideSpeed;
-      player.vy = vert * player.maxVertSpeed;
-
-      player.x += player.vx;
-      player.y += player.vy;
-
-      // mantinely v rámci silnice a okna
-      const minX = ROAD_MARGIN + 6;
-      const maxX = ROAD_MARGIN + ROAD_WIDTH - player.w - 6;
-      player.x = Math.max(minX, Math.min(maxX, player.x));
-      player.y = Math.max(60, Math.min(canvas.height - 120, player.y));
-
-      // boost
-      if (boostTime > 0){
-        boostTime -= dt;
-        speed = baseSpeed * BOOST_FACTOR;
-        if (boostTime <= 0){
-          speed = baseSpeed;
-          boostTime = 0;
-        }
-      }
-
-      // level up podle vzdálenosti
-      const pxPerMsNow = speedToPxPerMs(speed);
-      pxPerMs = pxPerMsNow;
-      distanceKm += (pxPerMsNow * dt) / 1800; // (px / 1800) = km
-      if (distanceKm >= nextLevelAt){
-        level++;
-        baseSpeed += 8; // každým levelem vyšší základ
-        speed = (boostTime>0) ? baseSpeed*BOOST_FACTOR : baseSpeed;
-        nextLevelAt += LEVEL_DISTANCE_STEP;
-        popMsg(`LEVEL ${level}`);
-      }
-
-      // Spawny
-      lastSpawnCar += dt;
-      lastSpawnPickup += dt;
-      const carEvery = Math.max(350 - level*20, 120);    // čím vyšší level, tím častěji
-      const pickEvery = 2200 + Math.max(0, 1200 - level*80);
-      if (lastSpawnCar >= carEvery){ spawnCar(); lastSpawnCar = 0; }
-      if (lastSpawnPickup >= pickEvery){ spawnPickup(); lastSpawnPickup = 0; }
-
-      // Posun aut a pickupů
-      for (let i = cars.length-1; i>=0; i--){
-        cars[i].y += cars[i].vy * (dt);
-        if (cars[i].y - cars[i].h > canvas.height) cars.splice(i,1);
-      }
-      for (let i = pickups.length-1; i>=0; i--){
-        pickups[i].y += pickups[i].vy * (dt);
-        if (pickups[i].y - pickups[i].h > canvas.height) pickups.splice(i,1);
-      }
-
-      // Kolize
-      for (let i = cars.length-1; i>=0; i--){
-        if (rectsOverlap(player, cars[i])){
-          crashes++;
-          popMsg('KOLIZE!');
-          // penalizace rychlosti
-          baseSpeed = Math.max(80, baseSpeed - 10);
-          speed = (boostTime>0) ? baseSpeed*BOOST_FACTOR : baseSpeed;
-          // odskočení auta i hráče
-          cars.splice(i,1);
-          player.y += 40;
-        }
-      }
-      for (let i = pickups.length-1; i>=0; i--){
-        if (rectsOverlap(player, pickups[i])){
-          boostTime += BOOST_ADD;
-          popMsg('⚡ TURBO!');
-          pickups.splice(i,1);
-        }
-      }
-
-      // konec hry – příliš mnoho kolizí
-      if (crashes >= 5){ gameOver(); }
-
-      updateHUD();
+  // --- Ovládání ---
+  const keys = {};
+  document.addEventListener('keydown', (e)=>{
+    keys[e.key] = true;
+    if(e.key==='ArrowLeft'){
+      if(player.moveToLane===null) player.moveToLane = Math.max(0, player.lane-1);
     }
-
-    function updateHUD(){
-      elLevel.textContent = level;
-      elSpeed.textContent = Math.round(speed);
-      elDist.textContent  = distanceKm.toFixed(2);
-      elBoost.textContent = Math.round((boostTime/1000)/3*100) + '%';
-      elCr.textContent    = crashes;
+    if(e.key==='ArrowRight'){
+      if(player.moveToLane===null) player.moveToLane = Math.min(lanesCount-1, player.lane+1);
     }
-
-    function rectsOverlap(a,b){
-      return !(a.x+a.w < b.x || a.x > b.x+b.w || a.y+a.h < b.y || a.y > b.y+b.h);
+    if(e.key==='ArrowUp'){ // ruční aktivace turba
+      if(boostMeter>0){ boostActive = true; }
     }
+    if(e.key.toLowerCase()==='p'){ paused = !paused; centerFlash(paused?'PAUZA':'GO!'); }
+    if(e.key.toLowerCase()==='r' && gameOver){ restart(); }
+  });
+  document.addEventListener('keyup', (e)=>{ keys[e.key]=false; if(e.key==='ArrowUp') boostActive=false; });
 
-    function drawRoad(){
-      // tráva
-      ctx.fillStyle = '#0e3b0e';
-      ctx.fillRect(0,0,ROAD_MARGIN,canvas.height);
-      ctx.fillRect(canvas.width-ROAD_MARGIN,0,ROAD_MARGIN,canvas.height);
-
-      // vozovka
-      ctx.fillStyle = '#2a2a2f';
-      ctx.fillRect(ROAD_MARGIN,0,ROAD_WIDTH,canvas.height);
-
-      // středové čáry mezi pruhy
-      ctx.strokeStyle = '#dcdcdc';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([22,18]);
-      for(let l=1;l<LANES;l++){
-        const x = ROAD_MARGIN + l*LANE_W;
-        ctx.beginPath();
-        ctx.moveTo(x,0);
-        ctx.lineTo(x,canvas.height);
-        ctx.stroke();
-      }
-      ctx.setLineDash([]);
+  // --- UX prvky ---
+  const center = document.getElementById('centerMsg');
+  let flashTimer = 0;
+  function centerFlash(msg){
+    center.textContent = msg;
+    center.style.opacity = '1';
+    flashTimer = 900;
+  }
+  function tickFlash(dt){
+    if(flashTimer>0){
+      flashTimer -= dt;
+      if(flashTimer<=0){ center.style.opacity='0'; }
     }
+  }
 
-    function drawCar(obj, color){
-      ctx.fillStyle = color;
-      ctx.strokeStyle = '#111';
-      ctx.lineWidth = 2;
-      ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
-      ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+  // --- Konec / restart ---
+  const modal = document.getElementById('modal');
+  function finish(){
+    running = false; gameOver = true;
+    modal.style.display = 'flex';
+    document.getElementById('summary').innerHTML =
+      `Level: <b>${level}</b> • Vzdálenost: <b>${fmt(distKm)}</b> km<br>`+
+      `Max rychlost: <b>${Math.round(maxSpeedKmh)}</b> km/h • Kolize: <b>${hits}</b>`;
+  }
+  function restart(){
+    // reset všeho
+    level = 1; speedKmh = 80; maxSpeedKmh = 80; boostMeter=0; boostActive=false;
+    distKm = 0; hits=0; enemies.length=0; powers.length=0;
+    spawnInterval = baseSpawnInterval; running=true; paused=false; gameOver=false;
+    player.lane = Math.floor(lanesCount/2); player.moveToLane=null;
+    modal.style.display='none';
+    centerFlash('GO!');
+  }
+  document.getElementById('again').onclick = restart;
 
-      // světla
-      ctx.fillStyle = '#ffd966';
-      ctx.fillRect(obj.x+6, obj.y+4, obj.w-12, 6);
-      ctx.fillStyle = '#ff6666';
-      ctx.fillRect(obj.x+6, obj.y+obj.h-10, obj.w-12, 6);
+  // drobný timer pro text
+  (function flashLoop(ts0){
+    let last = performance.now();
+    function f(){
+      const now = performance.now();
+      tickFlash(now-last);
+      last = now;
+      requestAnimationFrame(f);
     }
+    requestAnimationFrame(f);
+  })();
 
-    function drawPickup(p){
-      // ⚡ blesk
-      ctx.save();
-      ctx.translate(p.x+p.w/2, p.y+p.h/2);
-      ctx.rotate(Math.sin(performance.now()/160)*0.2);
-      ctx.fillStyle = '#ffff33';
-      ctx.strokeStyle='#ffea00';
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(-6,-10);
-      ctx.lineTo(2,-10);
-      ctx.lineTo(-2,6);
-      ctx.lineTo(6,6);
-      ctx.lineTo(-2,18);
-      ctx.lineTo(-2,10);
-      ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.restore();
-    }
-
-    function draw(){
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      drawRoad();
-
-      // auta
-      for (const c of cars) drawCar(c, c.color);
-
-      // pickupy
-      for (const p of pickups) drawPickup(p);
-
-      // hráč
-      drawCar(player, player.color);
-    }
-
-    function popMsg(text){
-      elMsg.textContent = text;
-      elMsg.style.opacity = '1';
-      setTimeout(()=>{ elMsg.style.opacity='0'; }, 600);
-    }
-
-    // počáteční vykreslení pozice hráče
-    resetState();
-    draw();
-  </script>
+})();
+</script>
 </body>
 </html>
