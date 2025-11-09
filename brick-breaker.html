@@ -1,344 +1,547 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Brick Breaker Extreme + Leaderboard</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Brick Breaker Extreme + Žebříček</title>
 <style>
-  :root {
-    --bg:#0b1020; --fg:#e9f1ff; --accent:#39c0ff; --accent2:#ffcb2f; --danger:#ff5d72;
-    --card: #121938; --muted:#9ab3d3;
+  :root{
+    --bg:#0b0f1a; --accent:#16f2b3; --accentDim:#0fbf8d; --panel:#12182a; --line:#22304d;
+    --good:#16f2b3; --warn:#ffc857; --bad:#ff5a5f; --text:#e9f1ff;
   }
-  *{box-sizing:border-box} body{margin:0; font-family:system-ui,Segoe UI,Roboto,Arial;
-    color:var(--fg); background: radial-gradient(1200px 600px at 50% -200px,#16325c 0%, #0b1020 60%)}
-  .wrap{max-width:980px;margin:32px auto;padding:0 16px;text-align:center}
-  h1{font-weight:800; letter-spacing:.02em; font-size:clamp(26px,4vw,44px); margin:8px 0 12px}
-  .subtitle{color:var(--muted); margin-bottom:18px}
-  .row{display:flex; gap:16px; align-items:flex-start; justify-content:center; flex-wrap:wrap}
-  #gameCard{flex:1 1 640px; background:var(--card); border:1px solid #203056; border-radius:16px;
-    box-shadow:0 10px 40px rgba(0,0,0,.35); padding:16px}
-  #board{display:block; width:100%; max-width:800px; aspect-ratio:16/9; background:#050a17;
-    border-radius:12px; border:1px solid #203056}
-  #hud{display:flex; justify-content:space-between; margin:12px 4px 4px; color:var(--muted); font-weight:600}
-  button{appearance:none; border:0; background:linear-gradient(180deg,var(--accent),#1aa9ef);
-    color:#021224; font-weight:800; padding:10px 16px; border-radius:12px; cursor:pointer}
-  button.secondary{background:#1e2b4d; color:var(--fg); border:1px solid #2a3e73}
-  button.warn{background:linear-gradient(180deg,#ff8a8a,#ff556e); color:#290308}
-  .menu{display:grid; gap:10px; grid-template-columns:repeat(2,minmax(180px,1fr)); justify-items:center; margin:12px 0}
-  /* Leaderboard */
-  #lbCard{flex:1 1 300px; background:var(--card); border:1px solid #203056; border-radius:16px; padding:16px}
-  table{width:100%; border-collapse:separate; border-spacing:0 8px}
-  th,td{text-align:left; padding:10px 12px; font-size:14px}
-  th{color:#a8c1e9; font-weight:700}
-  tr{background:#0f1734} tr.top1{background:#1a254d}
-  td.rank{font-weight:900; color:var(--accent2); width:44px}
-  td.score{font-weight:800}
-  td.name{max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .muted{color:var(--muted)}
-  /* Overlays */
-  .overlay{position:fixed; inset:0; display:none; place-items:center; backdrop-filter:blur(3px);
-           background:rgba(4,8,18,.55); z-index:20}
-  .card{background:var(--card); border:1px solid #203056; border-radius:16px; padding:22px; width:min(520px,92vw)}
-  .card h2{margin:0 0 8px}
-  .inputRow{display:flex; gap:8px; margin:14px 0 6px}
-  input[type=text]{flex:1; padding:10px 12px; border-radius:10px; border:1px solid #2a3e73;
-                   background:#0e1531; color:var(--fg); font-weight:700}
-  .pill{display:inline-block; padding:6px 10px; border-radius:999px; background:#10224a; color:#9ab3d3; font-weight:700}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background: radial-gradient(1200px 600px at 50% 20%, #14213d 0%, var(--bg) 60%, #070a12 100%);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color:var(--text);
+  }
+  #wrap{position:relative;text-align:center}
+  h1{
+    font-weight:800; letter-spacing:.02em; margin-bottom:8px;
+    text-shadow:0 0 18px rgba(22,242,179,.25);
+  }
+  #tag{opacity:.85;margin-bottom:12px}
+  #canvas{
+    border:2px solid var(--line); background:linear-gradient(180deg,#0f1426,#0b0f1a 40%,#0b0f1a 60%,#0a0e16);
+    box-shadow:0 20px 80px rgba(0,0,0,.6), inset 0 0 60px rgba(22,242,179,.05);
+    display:block;margin:10px auto;border-radius:12px;
+  }
+  #hud{
+    position:absolute; top:10px; left:50%; transform:translateX(-50%);
+    display:flex; gap:14px; padding:8px 14px; background:rgba(18,24,42,.6);
+    border:1px solid var(--line); border-radius:10px; backdrop-filter: blur(6px);
+    font-weight:700;
+  }
+  .pill{padding:4px 10px;border-radius:999px;background:#0f162b;border:1px solid #1c2945}
+  .pill b{color:var(--accent)}
+  #menu, #over, #boardModal{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, rgba(11,15,26,.0), rgba(11,15,26,.85) 30%, rgba(11,15,26,.95));
+  }
+  .panel{
+    width:min(92vw,900px); background:var(--panel); border:1px solid var(--line); border-radius:18px;
+    padding:24px; box-shadow:0 30px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.02) inset;
+  }
+  .row{display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-top:14px}
+  button{
+    appearance:none; border:1px solid var(--accentDim); background:linear-gradient(180deg, #17233a, #0f1729);
+    color:var(--text); padding:12px 18px; border-radius:12px; font-weight:800; letter-spacing:.02em; cursor:pointer;
+    transition:.15s transform, .15s box-shadow, .15s border-color;
+  }
+  button:hover{transform:translateY(-1px); box-shadow:0 8px 22px rgba(22,242,179,.15); border-color:var(--accent)}
+  button.primary{background:linear-gradient(180deg, #0fbf8d, #16f2b3); color:#06251c; border-color:#16f2b3}
+  button.primary:hover{box-shadow:0 10px 28px rgba(22,242,179,.32)}
+  #help{opacity:.85; font-size:.95rem; margin-top:8px}
+  .kbd{display:inline-block; padding:2px 8px; border-radius:8px; background:#0f162b; border:1px solid #263555; font-weight:700}
+  table{width:100%; border-collapse:collapse; margin-top:10px}
+  th,td{padding:10px 8px; border-bottom:1px solid #1e2b46; text-align:left}
+  th{color:var(--accent); font-weight:800}
+  td:nth-child(1){width:64px; text-align:center; color:#93a7d1}
+  .ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  #nameEntry{display:none; gap:8px; margin-top:12px}
+  #nameEntry input{
+    background:#0f162b; border:1px solid #263555; border-radius:10px; padding:10px 12px; color:var(--text); width:240px
+  }
+  #miniNote{opacity:.8; font-size:.9rem; margin-top:6px}
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>🧱 Brick Breaker Extreme</h1>
-    <div class="subtitle">Rozbij všechny cihly – a zapiš se do tabulky nejlepších!</div>
+<div id="wrap">
+  <h1>BRICK BREAKER EXTREME</h1>
+  <div id="tag">Barevné kostky s různým chováním + boční přestřel • <b>Žebříček TOP 10</b></div>
 
-    <div class="row">
-      <section id="gameCard">
-        <div id="hud">
-          <div>Skóre: <b id="score">0</b></div>
-          <div>Životy: <b id="lives">3</b></div>
-          <div class="pill">Nejlepší: <span id="bestInline">0</span></div>
-        </div>
-        <canvas id="board" width="960" height="540"></canvas>
+  <canvas id="canvas" width="1000" height="700"></canvas>
 
-        <div class="menu">
-          <button id="playBtn">▶️ Hrát</button>
-          <button class="secondary" id="showLbBtn">🏆 Žebříček</button>
-          <button class="secondary" id="pauseBtn" disabled>⏸️ Pauza</button>
-          <button class="warn" id="resetLbBtn">🗑️ Vymazat žebříček</button>
-        </div>
-        <div class="muted">Ovládání: ⬅️ ➡️ pohyb pálky • 🅿️ nebo Esc = pauza</div>
-      </section>
-
-      <aside id="lbCard">
-        <h2 style="margin:0 0 8px">🏆 Žebříček TOP 10</h2>
-        <div class="muted" style="margin-bottom:8px">Ukládá se jen v tomto prohlížeči (localStorage).</div>
-        <div id="leaderboardBox"></div>
-      </aside>
-    </div>
+  <div id="hud" style="display:none">
+    <div class="pill">Skóre: <b id="sc">0</b></div>
+    <div class="pill">Životy: <b id="lf">3</b></div>
+    <div class="pill">Level: <b id="lv">1</b></div>
   </div>
 
-  <!-- Modal – uložení výsledku -->
-  <div id="saveModal" class="overlay">
-    <div class="card">
-      <h2>Gratuluju! Dostals se do TOP 10 🎉</h2>
-      <div>Skóre: <b id="finalScoreLbl">0</b></div>
-      <div class="inputRow">
-        <input id="playerName" type="text" maxlength="20" placeholder="Tvoje jméno/přezdívka" />
-        <button id="saveScoreBtn">Uložit</button>
+  <!-- MENU -->
+  <div id="menu">
+    <div class="panel">
+      <h2 style="margin-bottom:6px">Připrav se na palbu 🚀</h2>
+      <div id="help">
+        Ovládání: <span class="kbd">←</span>/<span class="kbd">→</span> pohyb • myš taky funguje •
+        <span class="kbd">SPACE</span> přímý výstřel • <span class="kbd">A</span>/<span class="kbd">D</span> boční přestřel •
+        <span class="kbd">P</span> pauza
       </div>
-      <button class="secondary" id="skipSaveBtn">Neukládat</button>
+      <div class="row">
+        <button class="primary" id="startBtn">▶️ Začít</button>
+        <button id="seeBoardBtn">🏆 Žebříček</button>
+      </div>
+      <div id="miniNote">Žebříček se ukládá do <code>localStorage</code> na tomto zařízení.</div>
     </div>
   </div>
 
-  <!-- Modal – žebříček (lze otevřít z menu) -->
-  <div id="lbModal" class="overlay">
-    <div class="card">
+  <!-- GAME OVER / WIN -->
+  <div id="over" style="display:none">
+    <div class="panel">
+      <h2 id="overTitle">Konec hry 💥</h2>
+      <div class="row" style="justify-content:space-between">
+        <div>Skóre: <span class="ok" id="finalScore">0</span></div>
+        <div>Level: <span id="finalLevel">1</span></div>
+        <div>Zničené kostky: <span id="finalBricks">0</span></div>
+      </div>
+
+      <div id="nameEntry">
+        <input id="playerName" placeholder="Zapiš jméno do žebříčku" maxlength="24"/>
+        <button class="primary" id="saveScoreBtn">Uložit výsledek</button>
+      </div>
+
+      <h3 style="margin-top:16px">🏆 Žebříček TOP 10</h3>
+      <div id="boardHost"></div>
+
+      <div class="row">
+        <button id="againBtn" class="primary">🔄 Hrát znovu</button>
+        <button id="backBtn">🏠 Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOARD ONLY -->
+  <div id="boardModal" style="display:none">
+    <div class="panel">
       <h2>🏆 Žebříček TOP 10</h2>
-      <div id="leaderboardModalBox"></div>
-      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px">
-        <button class="secondary" id="closeLbBtn">Zavřít</button>
+      <div id="boardHost2"></div>
+      <div class="row">
+        <button id="closeBoard">Zpět</button>
+        <button id="resetBoard" title="Smazat uložené výsledky">🗑️ Vymazat žebříček</button>
       </div>
     </div>
   </div>
+</div>
 
 <script>
-/* =========================
-   LEADERBOARD – localStorage
-   ========================= */
-const LB_KEY = "bbe_leaderboard_v1";
-const NAME_KEY = "bbe_last_name";
-
-function getLeaderboard(){
-  const raw = localStorage.getItem(LB_KEY);
-  return raw ? JSON.parse(raw) : [];
+/* ------------------ ŽEBŘÍČEK (localStorage) ------------------ */
+const LB_KEY = "bbx_leaderboard_v1";
+function loadBoard(){
+  try{ return JSON.parse(localStorage.getItem(LB_KEY)) || []; }catch{return []}
 }
-function setLeaderboard(list){
-  localStorage.setItem(LB_KEY, JSON.stringify(list));
-}
-function qualifiesForTop10(score){
-  const list = getLeaderboard();
-  if (list.length < 10) return true;
-  const worst = list[list.length-1]?.score ?? -Infinity;
-  return score > worst;
-}
+function saveBoard(list){ localStorage.setItem(LB_KEY, JSON.stringify(list)); }
 function addScore(name, score){
-  const now = new Date();
-  const item = { name: name.trim() || "Anon", score, date: now.toISOString() };
-  const list = getLeaderboard();
-  list.push(item);
-  // seřadit DESC a oříznout na 10
-  list.sort((a,b)=>b.score - a.score);
-  setLeaderboard(list.slice(0,10));
-  // zapamatuj jméno pro příště
-  localStorage.setItem(NAME_KEY, item.name);
+  const list = loadBoard();
+  list.push({name:name.trim() || "Neznámý pilot", score, date: new Date().toISOString()});
+  list.sort((a,b)=>b.score-a.score);
+  saveBoard(list.slice(0,10));
 }
-function renderLeaderboard(targetEl){
-  const list = getLeaderboard();
-  if (!list.length){
-    targetEl.innerHTML = `<div class="muted">Žádná skóre zatím nejsou. Zahraj si první hru!</div>`;
-    return;
+function fmtDate(iso){
+  const d=new Date(iso);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+}
+function boardTable(list){
+  if(!list.length){
+    return `<p style="opacity:.8">Zatím prázdné. Buď první!</p>`;
   }
-  const rows = list.map((r,idx)=>`
-    <tr class="${idx===0?'top1':''}">
-      <td class="rank">#${idx+1}</td>
-      <td class="name">${escapeHtml(r.name)}</td>
-      <td class="score">${r.score}</td>
-      <td class="muted">${formatDate(r.date)}</td>
-    </tr>`).join("");
-  targetEl.innerHTML = `
-    <table>
-      <thead><tr><th>#</th><th>Jméno</th><th>Skóre</th><th>Datum</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-  // inline best
-  document.getElementById("bestInline").textContent = list[0].score;
+  let rows = list.map((r,i)=>`
+    <tr>
+      <td>${i+1}.</td>
+      <td>${r.name.replace(/[<>]/g,'')}</td>
+      <td class="ok"><b>${r.score}</b></td>
+      <td style="opacity:.8">${fmtDate(r.date)}</td>
+    </tr>
+  `).join('');
+  return `<table>
+    <thead><tr><th>#</th><th>Jméno</th><th>Skóre</th><th>Datum</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
-function resetLeaderboard(){
-  localStorage.removeItem(LB_KEY);
-  renderLeaderboard(document.getElementById("leaderboardBox"));
-  renderLeaderboard(document.getElementById("leaderboardModalBox"));
+function qualifies(score){
+  const list=loadBoard();
+  if(list.length<10) return true;
+  const worst=list[list.length-1];
+  return score>=(worst?.score ?? 0);
 }
-function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m]));}
-function formatDate(iso){
-  const d = new Date(iso);
-  const dd = String(d.getDate()).padStart(2,"0");
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  return `${dd}.${mm}.${d.getFullYear()}`;
-}
-/* ==============
-   JÁDRO HRY (mini)
-   ============== */
-const canvas = document.getElementById("board");
-const ctx = canvas.getContext("2d");
-const scoreEl = document.getElementById("score");
-const livesEl = document.getElementById("lives");
 
-let running=false, paused=false, rafId;
-let score=0, lives=3;
+/* ------------------ HRA ------------------ */
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const scEl = document.getElementById('sc');
+const lfEl = document.getElementById('lf');
+const lvEl = document.getElementById('lv');
 
-const paddle = { w:120, h:16, x: canvas.width/2-60, y: canvas.height-26, speed:9 };
-const ball   = { r:8, x: canvas.width/2, y: canvas.height-60, vx:5, vy:-5, speedUp:1.02 };
-let keys={ArrowLeft:false, ArrowRight:false};
+const menu = document.getElementById('menu');
+const over = document.getElementById('over');
+const overTitle = document.getElementById('overTitle');
+const finalScoreEl = document.getElementById('finalScore');
+const finalLevelEl = document.getElementById('finalLevel');
+const finalBricksEl = document.getElementById('finalBricks');
+const nameEntry = document.getElementById('nameEntry');
+const playerNameInput = document.getElementById('playerName');
+const saveScoreBtn = document.getElementById('saveScoreBtn');
+const boardHost = document.getElementById('boardHost');
 
-const BR = 9, BC = 13, B_MARGIN=6, B_W = (canvas.width - (BC+1)*B_MARGIN)/BC, B_H=20;
+const boardModal = document.getElementById('boardModal');
+const boardHost2 = document.getElementById('boardHost2');
+
+let running=false, paused=false;
+let score=0, lives=3, level=1, destroyed=0;
+
+const paddle = { x: canvas.width/2-60, y: canvas.height-28, w:120, h:16, speed:10 };
+const ball = { x: canvas.width/2, y: canvas.height-60, r:9, dx:4, dy:-5, speed:6, stuck:true };
+const shots = []; // {x,y,dx,dy,r}
+const shotCooldown = { up:0, left:0, right:0 };
+
+const COLS=12, ROWS=7, BRICK_W = (canvas.width-80)/COLS, BRICK_H=28;
 let bricks=[];
 
-function initLevel(){
-  bricks = [];
-  for(let r=0;r<BR;r++){
-    for(let c=0;c<BC;c++){
-      bricks.push({
-        x: B_MARGIN + c*(B_W+B_MARGIN),
-        y: 60 + r*(B_H+B_MARGIN),
-        w: B_W, h: B_H, hp: r<2?2:1
-      });
+/* styl kostek – barvy & chování:
+  - normal (1 HP)      = tyrkys
+  - tough  (2 HP)      = žlutá -> tyrkys po poškození
+  - fast   (1 HP)      = červená (po zásahu zrychlí míček)
+  - bomb   (1 HP)      = fialová (po zničení vybuchne a poškodí okolní)
+*/
+function makeLevel(lv){
+  bricks=[];
+  const marginX=40, startY=80;
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const x = marginX + c*BRICK_W;
+      const y = startY + r*BRICK_H;
+      // rozložení typů – barevně různorodé
+      const rnd = Math.random();
+      let type='normal', hp=1, color='#16f2b3';
+      if(rnd<0.18){ type='fast'; color='#ff5a5f'; hp=1; }            // červené
+      else if(rnd<0.35){ type='bomb'; color='#a06bff'; hp=1; }       // fialové
+      else if(rnd<0.55){ type='tough'; color='#ffc857'; hp=2; }      // žluté
+      // lehké přitvrzení s levelem
+      if(lv>=3 && type==='normal' && Math.random()<.25){ type='tough'; color='#ffc857'; hp=2; }
+      bricks.push({x,y,w:BRICK_W-6,h:BRICK_H-6,type,hp,color,alive:true});
     }
   }
 }
+
+function resetBall(){
+  ball.x = paddle.x + paddle.w/2;
+  ball.y = paddle.y - 16;
+  ball.dx = (Math.random()<.5?-1:1) * (4 + Math.random()*1.5);
+  ball.dy = - (5 + Math.random()*1.5);
+  ball.stuck = true;
+}
+
 function startGame(){
-  score=0; lives=3; paused=false; running=true;
-  ball.x=canvas.width/2; ball.y=canvas.height-60; ball.vx=5; ball.vy=-5;
+  score=0; lives=3; level=1; destroyed=0;
+  makeLevel(level);
   paddle.x = canvas.width/2 - paddle.w/2;
-  initLevel(); loop();
+  resetBall();
+  shots.length=0;
+  running=true; paused=false;
+  menu.style.display='none';
+  over.style.display='none';
+  hud.style.display='flex';
+  updateHud();
+  loop();
 }
-function onGameOver(finalScore){
-  running=false; cancelAnimationFrame(rafId);
-  // LEADERBOARD – rozhodnutí o uložení
-  if (qualifiesForTop10(finalScore)){
-    document.getElementById("finalScoreLbl").textContent = finalScore;
-    const last = localStorage.getItem(NAME_KEY) || "";
-    document.getElementById("playerName").value = last;
-    openModal("saveModal");
-  } else {
-    // jen obnov žebříček
-    renderLeaderboard(document.getElementById("leaderboardBox"));
-    openModal("lbModal");
+
+function updateHud(){
+  scEl.textContent=score;
+  lfEl.textContent=lives;
+  lvEl.textContent=level;
+}
+
+function drawPaddle(){
+  const grd=ctx.createLinearGradient(paddle.x,paddle.y,paddle.x,paddle.y+paddle.h);
+  grd.addColorStop(0,'#1ee6aa'); grd.addColorStop(1,'#0ea67c');
+  ctx.fillStyle=grd; ctx.fillRect(paddle.x,paddle.y,paddle.w,paddle.h);
+  // boční blastery
+  ctx.fillStyle='rgba(255,255,255,.25)';
+  ctx.fillRect(paddle.x-10,paddle.y+2,8,paddle.h-4);
+  ctx.fillRect(paddle.x+paddle.w+2,paddle.y+2,8,paddle.h-4);
+}
+
+function drawBall(){
+  ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
+  ctx.fillStyle='#eafffb'; ctx.shadowColor='rgba(22,242,179,.5)'; ctx.shadowBlur=14; ctx.fill(); ctx.shadowBlur=0;
+}
+
+function drawBricks(){
+  for(const b of bricks){
+    if(!b.alive) continue;
+    ctx.fillStyle=b.color;
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+    // kontury
+    ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.strokeRect(b.x+.5,b.y+.5,b.w-1,b.h-1);
+    // tough – pruh
+    if(b.type==='tough' && b.hp===2){
+      ctx.fillStyle='rgba(0,0,0,.12)';
+      ctx.fillRect(b.x,b.y+b.h/2-4,b.w,8);
+    }
   }
 }
-function loop(){
-  if (!running){return;}
-  rafId = requestAnimationFrame(loop);
-  if (paused){ draw(); return; }
 
-  // vstupy
-  if (keys.ArrowLeft) paddle.x -= paddle.speed;
-  if (keys.ArrowRight) paddle.x += paddle.speed;
-  paddle.x = Math.max(0, Math.min(canvas.width - paddle.w, paddle.x));
-
-  // fyzika míčku
-  ball.x += ball.vx; ball.y += ball.vy;
-
-  // stěny
-  if (ball.x-ball.r<0){ball.x=ball.r; ball.vx*=-1}
-  if (ball.x+ball.r>canvas.width){ball.x=canvas.width-ball.r; ball.vx*=-1}
-  if (ball.y-ball.r<0){ball.y=ball.r; ball.vy*=-1}
-
-  // pád dolů
-  if (ball.y - ball.r > canvas.height){
-    lives--; livesEl.textContent = lives;
-    if (lives<=0){ onGameOver(score); return; }
-    // reset míčku
-    ball.x=canvas.width/2; ball.y=canvas.height-60; ball.vx=5; ball.vy=-5;
+function drawShots(){
+  ctx.fillStyle='#9afbd3';
+  for(const s of shots){
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
   }
+}
 
-  // kolize s pálkou
-  if (ball.y+ball.r>=paddle.y && ball.y-ball.r<=paddle.y+paddle.h &&
-      ball.x>=paddle.x && ball.x<=paddle.x+paddle.w){
-    // odraz s úhlem dle místa zásahu
-    const hit = (ball.x - (paddle.x + paddle.w/2)) / (paddle.w/2);
-    const speed = Math.hypot(ball.vx, ball.vy) * ball.speedUp;
-    const angle = hit * (Math.PI/3); // +-60°
-    ball.vx = speed * Math.sin(angle);
-    ball.vy = -Math.abs(speed * Math.cos(angle));
+let mouseX=null;
+canvas.addEventListener('mousemove', e=>{
+  const rect=canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  mouseX = x;
+});
+
+const keys={};
+document.addEventListener('keydown', e=>{
+  keys[e.key.toLowerCase()] = true;
+  if(e.key===' '){ e.preventDefault(); fireUp(); }
+  if(e.key.toLowerCase()==='a') fireSide(-1);
+  if(e.key.toLowerCase()==='d') fireSide(1);
+  if(e.key.toLowerCase()==='p') paused=!paused;
+  if(ball.stuck && (e.key===' ' || e.key==='ArrowUp')) ball.stuck=false;
+});
+document.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()] = false; });
+
+function fireUp(){
+  if(shotCooldown.up>0) return;
+  shots.push({x:paddle.x+paddle.w/2, y:paddle.y-8, dx:0, dy:-12, r:4});
+  shotCooldown.up=10;
+}
+function fireSide(dir){
+  if(dir<0 && shotCooldown.left>0) return;
+  if(dir>0 && shotCooldown.right>0) return;
+  shots.push({x: dir<0? paddle.x-6 : paddle.x+paddle.w+6, y:paddle.y+paddle.h/2, dx: dir*12, dy:0, r:4});
+  if(dir<0) shotCooldown.left=18; else shotCooldown.right=18;
+}
+
+function collideBallBrick(b){
+  // AABB vs circle
+  const cx = Math.max(b.x, Math.min(ball.x, b.x+b.w));
+  const cy = Math.max(b.y, Math.min(ball.y, b.y+b.h));
+  const dx = ball.x - cx, dy = ball.y - cy;
+  return (dx*dx + dy*dy) <= (ball.r*ball.r);
+}
+function collideShotBrick(s,b){
+  return s.x+s.r>b.x && s.x-s.r<b.x+b.w && s.y+s.r>b.y && s.y-s.r<b.y+b.h;
+}
+
+function damageBrick(b){
+  if(!b.alive) return;
+  b.hp -= 1;
+  if(b.type==='tough' && b.hp===1){ b.color='#16f2b3'; b.type='normal'; }
+  if(b.hp<=0){
+    b.alive=false; destroyed++;
+    // chování typu
+    if(Math.random()<.12){ // malý drop bodík
+      score += 5;
+    }
+    if(b.type==='fast'){
+      // zrychlení míčku
+      const mult = 1.15;
+      ball.dx *= mult; ball.dy *= mult;
+    }else if(b.type==='bomb'){
+      // splash damage do okolí
+      for(const n of bricks){
+        if(!n.alive) continue;
+        const near = Math.hypot((n.x+b.w/2)-(b.x+b.w/2),(n.y+b.h/2)-(b.y+b.h/2));
+        if(near<70 && n!==b){ n.hp -= 1; if(n.type==='tough' && n.hp===1){ n.color='#16f2b3'; n.type='normal'; }
+          if(n.hp<=0){ n.alive=false; destroyed++; score+=8; }
+        }
+      }
+    }
+    score += 10;
+  }else{
+    score += 3;
   }
+}
 
-  // kolize s cihlami
-  for (let i=bricks.length-1;i>=0;i--){
-    const b = bricks[i];
-    if (ball.x+ball.r>=b.x && ball.x-ball.r<=b.x+b.w &&
-        ball.y+ball.r>=b.y && ball.y-ball.r<=b.y+b.h){
-      // zjednodušený odraz: invertuj vy s ohledem na strany
-      const overlapL = ball.x+ball.r - b.x;
-      const overlapR = (b.x+b.w) - (ball.x-ball.r);
-      const overlapT = ball.y+ball.r - b.y;
-      const overlapB = (b.y+b.h) - (ball.y-ball.r);
-      const minOverlap = Math.min(overlapL, overlapR, overlapT, overlapB);
-      if (minOverlap===overlapL || minOverlap===overlapR) ball.vx*=-1; else ball.vy*=-1;
+function nextLevel(){
+  level++; updateHud();
+  makeLevel(level);
+  resetBall();
+}
 
-      b.hp--; score += 10; scoreEl.textContent=score;
-      if (b.hp<=0) bricks.splice(i,1);
+function loseLife(){
+  lives--; updateHud();
+  if(lives<=0){ endRun(false); } else { resetBall(); }
+}
+
+function endRun(won){
+  running=false;
+  over.style.display='flex';
+  document.getElementById('hud').style.display='none';
+  overTitle.textContent = won ? "Vyhrál jsi! 🥳" : "Konec hry 💥";
+  finalScoreEl.textContent = score;
+  finalLevelEl.textContent = level;
+  finalBricksEl.textContent = destroyed;
+
+  // žebříček
+  const qualifiesNow = qualifies(score);
+  nameEntry.style.display = qualifiesNow ? 'flex' : 'none';
+  playerNameInput.value = '';
+  boardHost.innerHTML = boardTable(loadBoard());
+
+  if(qualifiesNow){
+    playerNameInput.focus();
+  }
+}
+
+function update(){
+  if(!running || paused) return;
+
+  // cooldowny střel
+  shotCooldown.up = Math.max(0, shotCooldown.up-1);
+  shotCooldown.left = Math.max(0, shotCooldown.left-1);
+  shotCooldown.right = Math.max(0, shotCooldown.right-1);
+
+  // pohyb pálky klávesy
+  if(keys['arrowleft']) paddle.x -= paddle.speed;
+  if(keys['arrowright']) paddle.x += paddle.speed;
+
+  // pohyb pálky myší
+  if(mouseX!==null){
+    // jemné „lepení“
+    paddle.x += (mouseX - (paddle.x + paddle.w/2)) * 0.25;
+  }
+  paddle.x = Math.max(12, Math.min(canvas.width - paddle.w - 12, paddle.x));
+
+  // míček – „přilepený“ na start
+  if(ball.stuck){
+    ball.x = paddle.x + paddle.w/2;
+    ball.y = paddle.y - 16;
+  }else{
+    ball.x += ball.dx; ball.y += ball.dy;
+    // odrazy od stěn
+    if(ball.x-ball.r < 0){ ball.x = ball.r; ball.dx *= -1; }
+    if(ball.x+ball.r > canvas.width){ ball.x = canvas.width-ball.r; ball.dx *= -1; }
+    if(ball.y-ball.r < 0){ ball.y = ball.r; ball.dy *= -1; }
+    if(ball.y-ball.r > canvas.height){ loseLife(); }
+    // odraz od pálky
+    if(ball.y+ball.r>=paddle.y && ball.y+ball.r<=paddle.y+paddle.h && ball.x>=paddle.x && ball.x<=paddle.x+paddle.w && ball.dy>0){
+      // variabilní odraz dle místa dopadu
+      const hit = (ball.x - (paddle.x + paddle.w/2)) / (paddle.w/2);
+      const speed = Math.hypot(ball.dx, ball.dy) * 1.02;
+      const angle = hit * (Math.PI/3); // ±60°
+      ball.dx = speed * Math.sin(angle);
+      ball.dy = -Math.abs(speed * Math.cos(angle));
     }
   }
 
-  // výhra – žádné cihly
-  if (bricks.length===0){ onGameOver(score); return; }
+  // střely
+  for(let i=shots.length-1;i>=0;i--){
+    const s=shots[i];
+    s.x += s.dx; s.y += s.dy;
+    if(s.x < -10 || s.x > canvas.width+10 || s.y < -10 || s.y > canvas.height+10){ shots.splice(i,1); continue; }
+  }
 
-  draw();
+  // kolize s kostkami
+  let remaining=0;
+  for(const b of bricks){
+    if(!b.alive) continue;
+    remaining++;
+    // míček
+    if(collideBallBrick(b)){
+      // zjistit stranu odrazu jednodušeji – posuňme zpět
+      // invertuj osu s větším průnikem
+      const prevX = ball.x - ball.dx, prevY = ball.y - ball.dy;
+      const wasLeft = prevX < b.x, wasRight = prevX > b.x + b.w, wasAbove = prevY < b.y, wasBelow = prevY > b.y + b.h;
+      if((wasLeft && !wasRight) || (wasRight && !wasLeft)){ ball.dx *= -1; } else { ball.dy *= -1; }
+      damageBrick(b);
+      updateHud();
+    }
+    // střely
+    for(let i=shots.length-1;i>=0;i--){
+      if(collideShotBrick(shots[i],b)){
+        damageBrick(b);
+        shots.splice(i,1);
+        updateHud();
+      }
+    }
+  }
+  if(remaining===0){ nextLevel(); }
+
 }
+
 function draw(){
   // pozadí
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const g = ctx.createLinearGradient(0,0,0,canvas.height);
-  g.addColorStop(0,"#031028"); g.addColorStop(1,"#071a3d"); ctx.fillStyle=g;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // slabá mřížka
+  ctx.strokeStyle='rgba(255,255,255,.03)'; ctx.lineWidth=1;
+  for(let x=0;x<canvas.width;x+=50){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for(let y=0;y<canvas.height;y+=50){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
 
-  // cihly
-  for (const b of bricks){
-    ctx.fillStyle = b.hp>1 ? "#ffcb2f" : "#39c0ff";
-    ctx.fillRect(b.x, b.y, b.w, b.h);
+  drawBricks();
+  drawPaddle();
+  drawBall();
+  drawShots();
+
+  // stav – pauza
+  if(paused){
+    ctx.fillStyle='rgba(11,15,26,.6)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#b9c8eb';
+    ctx.font='700 36px system-ui, sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('Pauza (P)', canvas.width/2, canvas.height/2);
   }
-  // pálka
-  ctx.fillStyle="#e2ecff"; ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
-  // míček
-  ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
-  ctx.fillStyle="#ffffff"; ctx.fill();
 }
 
-/* ===========
-   UI & akce
-   =========== */
-function openModal(id){ document.getElementById(id).style.display="grid"; }
-function closeModal(id){ document.getElementById(id).style.display="none"; }
+function loop(){
+  if(!running){ return; }
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
 
-document.getElementById("playBtn").onclick = ()=>{ if(!running){ startGame(); } };
-document.getElementById("showLbBtn").onclick = ()=>{ renderLeaderboard(document.getElementById("leaderboardModalBox")); openModal("lbModal"); };
-document.getElementById("closeLbBtn").onclick = ()=> closeModal("lbModal");
-document.getElementById("resetLbBtn").onclick = ()=>{
-  if (confirm("Opravdu vymazat žebříček v tomto prohlížeči?")) resetLeaderboard();
-};
-document.getElementById("pauseBtn").onclick = (e)=>{
-  if (!running) return;
-  paused = !paused;
-  e.target.textContent = paused ? "▶️ Pokračovat" : "⏸️ Pauza";
-};
+/* ------------------ UI / Žebříček modaly ------------------ */
+document.getElementById('startBtn').onclick = startGame;
 
-document.addEventListener("keydown",(e)=>{
-  if (e.key==="ArrowLeft")  keys.ArrowLeft = true;
-  if (e.key==="ArrowRight") keys.ArrowRight = true;
-  if ((e.key==="p"||e.key==="P"||e.key==="Escape") && running){
-    document.getElementById("pauseBtn").click();
+document.getElementById('seeBoardBtn').onclick = ()=>{
+  boardHost2.innerHTML = boardTable(loadBoard());
+  boardModal.style.display='flex';
+};
+document.getElementById('closeBoard').onclick = ()=>{ boardModal.style.display='none'; };
+document.getElementById('resetBoard').onclick = ()=>{
+  if(confirm('Opravdu smazat uložený žebříček?')){
+    saveBoard([]); boardHost2.innerHTML = boardTable([]);
   }
-});
-document.addEventListener("keyup",(e)=>{
-  if (e.key==="ArrowLeft")  keys.ArrowLeft = false;
-  if (e.key==="ArrowRight") keys.ArrowRight = false;
-});
-
-// Uložení výsledku
-document.getElementById("saveScoreBtn").onclick = ()=>{
-  const name = document.getElementById("playerName").value.trim();
-  const s = parseInt(document.getElementById("finalScoreLbl").textContent,10);
-  addScore(name || "Hráč", s);
-  renderLeaderboard(document.getElementById("leaderboardBox"));
-  renderLeaderboard(document.getElementById("leaderboardModalBox"));
-  closeModal("saveModal");
-  openModal("lbModal");
 };
-document.getElementById("skipSaveBtn").onclick = ()=>{ closeModal("saveModal"); openModal("lbModal"); };
 
-// První render žebříčku
-renderLeaderboard(document.getElementById("leaderboardBox"));
-renderLeaderboard(document.getElementById("leaderboardModalBox"));
+document.getElementById('againBtn').onclick = ()=>{ over.style.display='none'; startGame(); };
+document.getElementById('backBtn').onclick = ()=>{
+  over.style.display='none'; menu.style.display='flex'; document.getElementById('hud').style.display='none';
+};
+
+saveScoreBtn.onclick = ()=>{
+  const name = playerNameInput.value || "Neznámý pilot";
+  addScore(name, score);
+  nameEntry.style.display='none';
+  boardHost.innerHTML = boardTable(loadBoard());
+};
+
+/* ------------------ Inicializace (menu + prázdný žebříček) ------------------ */
+boardHost2.innerHTML = boardTable(loadBoard());
+draw(); // první „prázdné“ vykreslení
 </script>
 </body>
 </html>
