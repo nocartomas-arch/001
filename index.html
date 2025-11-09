@@ -306,7 +306,7 @@ gap: 20px;
 
 <div class="stats">
 <div class="stat-item">
-<span class="stat-number" id="totalGames">2</span>
+<span class="stat-number" id="totalGames">8</span>
 <span class="stat-label">Celkem her</span>
 </div>
 <div class="stat-item">
@@ -351,7 +351,7 @@ description: "Jednoduchá a zábavná skákací hra. Přeskakujte překážky a 
 icon: "🏃",
 difficulty: "easy",
 category: "arcade",
-file: "jumping_game_v1.html", // Název vašeho souboru
+file: "jumping_game_v1.html",
 color: "#4CAF50"
 },
 {
@@ -361,28 +361,30 @@ description: "Pokročilá verze s životy, mincemi a stoupající obtížností.
 icon: "🎮",
 difficulty: "medium",
 category: "arcade",
-file: "jumping_game_v2.html", // Název vašeho souboru
+file: "jumping_game_v2.html",
 color: "#FF9800"
 },
 {
 id: 3,
-title: "Vesmírná střílečka FPS",
-description: "Jednoduchá střílečka ve vesmíru",
-icon: "🛸",
-difficulty: "hard",
+title: "Space Defender",
+description: "FPS střílečka! Bráňte základnu před vlnami nepřátel z vesmíru.",
+icon: "🚀",
+difficulty: "medium",
 category: "action",
 file: "space_shooter_fps.html",
-color: "#E91E63"
-},            {
+color: "#00ff00"
+},
+{
 id: 4,
-title: "Gorilla tower hra",
-description: "S gorillou bránící ve vašem postupu, se snažíte dostat co nejvýše v domě přes překáčky",
+title: "Gorilla Tower",
+description: "Vyšplhejte se na vrchol budovy a zachraňte den! Inspirováno Wreck-it Ralph.",
 icon: "🦍",
-difficulty: "hard",
-category: "action",
-file: "gorilla_tower_game (1).html",
-color: "#B027F5"
-},            {
+difficulty: "medium",
+category: "arcade",
+file: "gorilla_tower_game.html",
+color: "#8B4513"
+},
+{
 id: 5,
 title: "Skákací hra s pandou",
 description: "Panda skáče přes ovečky a má 23 životů",
@@ -391,50 +393,37 @@ difficulty: "easy",
 category: "arcade",
 file: "hra_skakani_pokrocila_V2.html",
 color: "#275EF5"
-}
-            {
-    id: 6,
-    title: "Match-3 Candy",
-    description: "Barevná Match-3 hra! Spojuj bonbóny a sbírej body proti času.",
-    icon: "🍬",
-    difficulty: "easy",
-    category: "casual",
-    file: "match3-candy.html",
-    color: "#FF6B9D"
 },
 {
-    id: 7,
-    title: "Brick Breaker Extreme",
-    description: "Klasická arkáda! Rozbicej všechny cihly a sbírej power-upy.",
-    icon: "🧱",
-    difficulty: "medium",
-    category: "arcade",
-    file: "brick-breaker.html",
-    color: "#7e22ce"
+id: 6,
+title: "Match-3 Candy",
+description: "Barevná Match-3 hra! Spojuj bonbóny a sbírej body proti času.",
+icon: "🍬",
+difficulty: "easy",
+category: "casual",
+file: "match3-candy.html",
+color: "#FF6B9D"
 },
 {
-    id: 8,
-    title: "Mastermind Colors",
-    description: "Logická hra! Uhádni tajnou kombinaci barev pomocí dedukce.",
-    icon: "🎨",
-    difficulty: "medium",
-    category: "puzzle",
-    file: "mastermind-colors.html",
-    color: "#667eea"
+id: 7,
+title: "Brick Breaker Extreme",
+description: "Klasická arkáda! Rozbicej všechny cihly a sbírej power-upy.",
+icon: "🧱",
+difficulty: "medium",
+category: "arcade",
+file: "brick-breaker.html",
+color: "#7e22ce"
+},
+{
+id: 8,
+title: "Mastermind Colors",
+description: "Logická hra! Uhádni tajnou kombinaci barev pomocí dedukce.",
+icon: "🎨",
+difficulty: "medium",
+category: "puzzle",
+file: "mastermind-colors.html",
+color: "#667eea"
 }
-// Přidejte zde další hry podle potřeby
-/*
-           {
-               id: 3,
-               title: "Název nové hry",
-               description: "Popis hry...",
-               icon: "🎲",
-               difficulty: "hard",
-               category: "puzzle",
-               file: "nova-hra.html",
-               color: "#E91E63"
-           }
-           */
 ];
 
 // Funkce pro vykreslení her
@@ -455,18 +444,18 @@ hard: '😰 Těžká'
 };
 
 card.innerHTML = `
-                   <div class="game-thumbnail" style="background: linear-gradient(135deg, ${game.color}, ${game.color}99);">
-                       ${game.icon}
-                   </div>
-                   <div class="game-info">
-                       <div class="game-title">${game.title}</div>
-                       <div class="game-description">${game.description}</div>
-                       <div class="game-meta">
-                           <span class="game-difficulty ${difficultyClass}">${difficultyText[game.difficulty]}</span>
-                           <button class="play-button" onclick="playGame('${game.file}')">▶️ Hrát</button>
-                       </div>
-                   </div>
-               `;
+<div class="game-thumbnail" style="background: linear-gradient(135deg, ${game.color}, ${game.color}99);">
+${game.icon}
+</div>
+<div class="game-info">
+<div class="game-title">${game.title}</div>
+<div class="game-description">${game.description}</div>
+<div class="game-meta">
+<span class="game-difficulty ${difficultyClass}">${difficultyText[game.difficulty]}</span>
+<button class="play-button" onclick="playGame('${game.file}')">▶️ Hrát</button>
+</div>
+</div>
+`;
 
 gamesGrid.appendChild(card);
 });
