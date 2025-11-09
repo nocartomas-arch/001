@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Herní portál - Výběr her</title>
+<title>Herní portál - 15 Her</title>
 <style>
 * {
 margin: 0;
@@ -92,7 +92,6 @@ box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
 
 .game-thumbnail {
 height: 200px;
-background: linear-gradient(135deg, #667eea, #764ba2);
 display: flex;
 align-items: center;
 justify-content: center;
@@ -252,48 +251,24 @@ opacity: 0.8;
 }
 
 @keyframes fadeIn {
-from {
-opacity: 0;
-}
-to {
-opacity: 1;
-}
+from { opacity: 0; }
+to { opacity: 1; }
 }
 
 @keyframes fadeInDown {
-from {
-opacity: 0;
-transform: translateY(-30px);
-}
-to {
-opacity: 1;
-transform: translateY(0);
-}
+from { opacity: 0; transform: translateY(-30px); }
+to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeInUp {
-from {
-opacity: 0;
-transform: translateY(30px);
-}
-to {
-opacity: 1;
-transform: translateY(0);
-}
+from { opacity: 0; transform: translateY(30px); }
+to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 768px) {
-h1 {
-font-size: 2.5em;
-}
-
-.games-grid {
-grid-template-columns: 1fr;
-}
-
-.stats {
-gap: 20px;
-}
+h1 { font-size: 2.5em; }
+.games-grid { grid-template-columns: 1fr; }
+.stats { gap: 20px; }
 }
 </style>
 </head>
@@ -301,12 +276,12 @@ gap: 20px;
 <div class="container">
 <header>
 <h1>🎮 Herní portál 🎮</h1>
-<p class="subtitle">Vyberte si ze široké nabídky her</p>
+<p class="subtitle">15 úžasných her zdarma!</p>
 </header>
 
 <div class="stats">
 <div class="stat-item">
-<span class="stat-number" id="totalGames">8</span>
+<span class="stat-number" id="totalGames">15</span>
 <span class="stat-label">Celkem her</span>
 </div>
 <div class="stat-item">
@@ -331,9 +306,7 @@ gap: 20px;
 <button class="filter-btn" data-category="casual">😊 Casual</button>
 </div>
 
-<div class="games-grid" id="gamesGrid">
-<!-- Hry budou vloženy JavaScript -->
-</div>
+<div class="games-grid" id="gamesGrid"></div>
 
 <footer>
 <p>© 2024 Herní portál | Všechna práva vyhrazena</p>
@@ -342,91 +315,24 @@ gap: 20px;
 </div>
 
 <script>
-// Databáze her - zde přidávejte nové hry
 const games = [
-{
-id: 1,
-title: "Skákací hra - Classic",
-description: "Jednoduchá a zábavná skákací hra. Přeskakujte překážky a sbírejte body!",
-icon: "🏃",
-difficulty: "easy",
-category: "arcade",
-file: "jumping_game_v1.html",
-color: "#4CAF50"
-},
-{
-id: 2,
-title: "Super Skákací hra",
-description: "Pokročilá verze s životy, mincemi a stoupající obtížností. Tři režimy hry!",
-icon: "🎮",
-difficulty: "medium",
-category: "arcade",
-file: "jumping_game_v2.html",
-color: "#FF9800"
-},
-{
-id: 3,
-title: "Space Defender",
-description: "FPS střílečka! Bráňte základnu před vlnami nepřátel z vesmíru.",
-icon: "🚀",
-difficulty: "medium",
-category: "action",
-file: "space_shooter_fps.html",
-color: "#00ff00"
-},
-{
-id: 4,
-title: "Gorilla Tower",
-description: "Vyšplhejte se na vrchol budovy a zachraňte den! Inspirováno Wreck-it Ralph.",
-icon: "🦍",
-difficulty: "medium",
-category: "arcade",
-file: "gorilla_tower_game.html",
-color: "#8B4513"
-},
-{
-id: 5,
-title: "Skákací hra s pandou",
-description: "Panda skáče přes ovečky a má 23 životů",
-icon: "🐼",
-difficulty: "easy",
-category: "arcade",
-file: "hra_skakani_pokrocila_V2.html",
-color: "#275EF5"
-},
-{
-id: 6,
-title: "Match-3 Candy",
-description: "Barevná Match-3 hra! Spojuj bonbóny a sbírej body proti času.",
-icon: "🍬",
-difficulty: "easy",
-category: "casual",
-file: "match3-candy.html",
-color: "#FF6B9D"
-},
-{
-id: 7,
-title: "Brick Breaker Extreme",
-description: "Klasická arkáda! Rozbicej všechny cihly a sbírej power-upy.",
-icon: "🧱",
-difficulty: "medium",
-category: "arcade",
-file: "brick-breaker.html",
-color: "#7e22ce"
-},
-{
-id: 8,
-title: "Mastermind Colors",
-description: "Logická hra! Uhádni tajnou kombinaci barev pomocí dedukce.",
-icon: "🎨",
-difficulty: "medium",
-category: "puzzle",
-file: "mastermind-colors.html",
-color: "#667eea"
-}
+{id: 1, title: "Skákací hra - Classic", description: "Jednoduchá a zábavná skákací hra. Přeskakujte překážky!", icon: "🏃", difficulty: "easy", category: "arcade", file: "jumping_game_v1.html", color: "#4CAF50"},
+{id: 2, title: "Super Skákací hra", description: "Pokročilá verze s životy, mincemi a stoupající obtížností!", icon: "🎮", difficulty: "medium", category: "arcade", file: "jumping_game_v2.html", color: "#FF9800"},
+{id: 3, title: "Space Defender", description: "FPS střílečka! Bráňte základnu před vlnami nepřátel.", icon: "🚀", difficulty: "medium", category: "action", file: "space_shooter_fps.html", color: "#00ff00"},
+{id: 4, title: "Gorilla Tower", description: "Vyšplhejte na vrchol budovy! Inspirováno Wreck-it Ralph.", icon: "🦍", difficulty: "medium", category: "arcade", file: "gorilla_tower_game.html", color: "#8B4513"},
+{id: 5, title: "Skákací hra s pandou", description: "Panda skáče přes ovečky a má 23 životů.", icon: "🐼", difficulty: "easy", category: "arcade", file: "hra_skakani_pokrocila_V2.html", color: "#275EF5"},
+{id: 6, title: "Match-3 Candy", description: "Barevná Match-3 hra! Spojuj bonbóny proti času.", icon: "🍬", difficulty: "easy", category: "casual", file: "match3-candy.html", color: "#FF6B9D"},
+{id: 7, title: "Brick Breaker Extreme", description: "Klasická arkáda! Rozbicej cihly a sbírej power-upy.", icon: "🧱", difficulty: "medium", category: "arcade", file: "brick-breaker.html", color: "#7e22ce"},
+{id: 8, title: "Mastermind Colors", description: "Logická hra! Uhádni tajnou kombinaci barev.", icon: "🎨", difficulty: "medium", category: "puzzle", file: "mastermind-colors.html", color: "#667eea"},
+{id: 9, title: "Turbo Racer", description: "Závodní hra! Vyhýbej se autům a sbírej mince.", icon: "🏎️", difficulty: "medium", category: "action", file: "turbo-racer.html", color: "#FF4500"},
+{id: 10, title: "Memory Cards", description: "Pexeso s časovým limitem! Trénuj svou paměť.", icon: "🧠", difficulty: "easy", category: "casual", file: "memory-cards.html", color: "#FF1493"},
+{id: 11, title: "2048 Plus", description: "Návyková logická hra! Dosáhni čísla 2048.", icon: "2️⃣", difficulty: "medium", category: "puzzle", file: "2048-plus.html", color: "#776e65"},
+{id: 12, title: "Snake Classic", description: "Klasický had! Sněz jídlo a nesraz se do sebe.", icon: "🐍", difficulty: "easy", category: "arcade", file: "snake-classic.html", color: "#00FF00"},
+{id: 13, title: "Tetris Classic", description: "Legendární Tetris! Skládej bloky a maz řádky.", icon: "🎮", difficulty: "medium", category: "puzzle", file: "tetris-classic.html", color: "#3498db"},
+{id: 14, title: "Flappy Bird", description: "Kultovní Flappy Bird! Proletuj mezi trubkami.", icon: "🐦", difficulty: "hard", category: "casual", file: "flappy-bird.html", color: "#FFD700"},
+{id: 15, title: "Space Invaders", description: "Retro klasika! Zničte všechny invadery z vesmíru.", icon: "👾", difficulty: "medium", category: "action", file: "space-invaders.html", color: "#00FF00"}
 ];
 
-// Funkce pro vykreslení her
 function renderGames(gamesToRender = games) {
 const gamesGrid = document.getElementById('gamesGrid');
 gamesGrid.innerHTML = '';
@@ -460,16 +366,13 @@ ${game.icon}
 gamesGrid.appendChild(card);
 });
 
-// Aktualizace počtu her
 document.getElementById('totalGames').textContent = gamesToRender.length;
 }
 
-// Funkce pro spuštění hry
 function playGame(filename) {
 window.location.href = filename;
 }
 
-// Vyhledávání her
 document.getElementById('searchInput').addEventListener('input', (e) => {
 const searchTerm = e.target.value.toLowerCase();
 const filtered = games.filter(game => 
@@ -479,12 +382,9 @@ game.description.toLowerCase().includes(searchTerm)
 renderGames(filtered);
 });
 
-// Filtrování podle kategorie
 document.querySelectorAll('.filter-btn').forEach(btn => {
 btn.addEventListener('click', (e) => {
-// Odstranit active třídu ze všech tlačítek
 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-// Přidat active třídu na kliknuté tlačítko
 e.target.classList.add('active');
 
 const category = e.target.dataset.category;
@@ -497,7 +397,6 @@ renderGames(filtered);
 });
 });
 
-// Inicializace - vykreslení her při načtení stránky
 renderGames();
 </script>
 </body>
