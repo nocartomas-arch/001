@@ -1,1 +1,327 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penalty Kick</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #90EE90 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        #gameContainer {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            color: #2ECC40;
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .stat {
+            background: linear-gradient(135deg, #2ECC40, #01FF70);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        #gameCanvas {
+            border: 5px solid #2ECC40;
+            background: #7CFC00;
+            display: block;
+            margin: 20px auto;
+            cursor: crosshair;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #2ECC40;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #01FF70;
+        }
+        #instructions {
+            color: #2ECC40;
+            font-size: 16px;
+            margin: 15px 0;
+        }
+        #result {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            animation: resultAnim 1s ease-out;
+        }
+        @keyframes resultAnim {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>⚽ PENALTY KICK ⚽</h1>
+        <div id="stats">
+            <div class="stat">🥅 Góly: <span id="goals">0</span></div>
+            <div class="stat">❌ Chyby: <span id="misses">0</span></div>
+            <div class="stat">🎯 Úspěšnost: <span id="accuracy">100</span>%</div>
+        </div>
+        <canvas id="gameCanvas" width="700" height="500"></canvas>
+        <div id="result"></div>
+        <div id="instructions">🖱️ Klikni na branku pro kopnutí! Vyhni se brankáři!</div>
+        <button onclick="restart()">🔄 RESTART</button>
+        <button onclick="goHome()">🏠 MENU</button>
+    </div>
 
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let goals = 0;
+        let misses = 0;
+        let canShoot = true;
+        let ball = null;
+        let goalkeeper = {
+            x: canvas.width / 2,
+            y: 80,
+            width: 60,
+            height: 80,
+            direction: 1,
+            speed: 3
+        };
+        
+        function drawField() {
+            // Trávník
+            ctx.fillStyle = '#7CFC00';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Čáry
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+            
+            // Brankoviště
+            ctx.strokeRect(canvas.width / 2 - 150, 20, 300, 150);
+        }
+        
+        function drawGoal() {
+            // Síť
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                ctx.moveTo(100 + i * 30, 20);
+                ctx.lineTo(100 + i * 30, 170);
+                ctx.stroke();
+            }
+            for (let i = 0; i < 6; i++) {
+                ctx.beginPath();
+                ctx.moveTo(100, 20 + i * 30);
+                ctx.lineTo(600, 20 + i * 30);
+                ctx.stroke();
+            }
+            
+            // Tyče
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 8;
+            ctx.strokeRect(100, 20, 500, 150);
+        }
+        
+        function drawGoalkeeper() {
+            // Tělo
+            ctx.fillStyle = '#FF851B';
+            ctx.fillRect(goalkeeper.x - goalkeeper.width / 2, goalkeeper.y, goalkeeper.width, goalkeeper.height);
+            
+            // Hlava
+            ctx.fillStyle = '#FFD1A4';
+            ctx.beginPath();
+            ctx.arc(goalkeeper.x, goalkeeper.y, 20, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Rukavice
+            ctx.fillStyle = '#00FF00';
+            ctx.beginPath();
+            ctx.arc(goalkeeper.x - 35, goalkeeper.y + 40, 12, 0, Math.PI * 2);
+            ctx.arc(goalkeeper.x + 35, goalkeeper.y + 40, 12, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function drawBall(x, y, size) {
+            ctx.fillStyle = 'white';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // Vzor
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(x, y, size - 5, i * Math.PI / 2.5, i * Math.PI / 2.5 + 0.5);
+                ctx.stroke();
+            }
+        }
+        
+        function updateGoalkeeper() {
+            goalkeeper.x += goalkeeper.speed * goalkeeper.direction;
+            
+            if (goalkeeper.x < 150 || goalkeeper.x > 550) {
+                goalkeeper.direction *= -1;
+            }
+        }
+        
+        function shootBall(targetX, targetY) {
+            if (!canShoot) return;
+            canShoot = false;
+            
+            ball = {
+                x: canvas.width / 2,
+                y: canvas.height - 50,
+                targetX: targetX,
+                targetY: targetY,
+                progress: 0,
+                size: 15
+            };
+            
+            animateBall();
+        }
+        
+        function animateBall() {
+            if (!ball) return;
+            
+            ball.progress += 0.02;
+            
+            if (ball.progress >= 1) {
+                checkGoal();
+                ball = null;
+                setTimeout(() => {
+                    canShoot = true;
+                }, 1000);
+                return;
+            }
+            
+            ball.x = canvas.width / 2 + (ball.targetX - canvas.width / 2) * ball.progress;
+            ball.y = canvas.height - 50 + (ball.targetY - (canvas.height - 50)) * ball.progress;
+            ball.size = 15 - ball.progress * 8;
+            
+            draw();
+            requestAnimationFrame(animateBall);
+        }
+        
+        function checkGoal() {
+            if (!ball) return;
+            
+            const resultEl = document.getElementById('result');
+            
+            // Kontrola zásahu brankáře
+            if (Math.abs(ball.x - goalkeeper.x) < 50 && ball.y < 160) {
+                misses++;
+                resultEl.textContent = '❌ CHYCENO!';
+                resultEl.style.color = '#FF0000';
+            }
+            // Kontrola gólu
+            else if (ball.x > 100 && ball.x < 600 && ball.y < 170) {
+                goals++;
+                resultEl.textContent = '⚽ GÓL!';
+                resultEl.style.color = '#2ECC40';
+            }
+            // Mimo branku
+            else {
+                misses++;
+                resultEl.textContent = '❌ MIMO!';
+                resultEl.style.color = '#FF0000';
+            }
+            
+            resultEl.style.display = 'block';
+            setTimeout(() => {
+                resultEl.style.display = 'none';
+            }, 1500);
+            
+            updateStats();
+        }
+        
+        function updateStats() {
+            document.getElementById('goals').textContent = goals;
+            document.getElementById('misses').textContent = misses;
+            const total = goals + misses;
+            const accuracy = total > 0 ? Math.round((goals / total) * 100) : 100;
+            document.getElementById('accuracy').textContent = accuracy;
+        }
+        
+        function draw() {
+            drawField();
+            drawGoal();
+            drawGoalkeeper();
+            if (ball) {
+                drawBall(ball.x, ball.y, ball.size);
+            } else {
+                drawBall(canvas.width / 2, canvas.height - 50, 15);
+            }
+        }
+        
+        function gameLoop() {
+            if (!ball) {
+                updateGoalkeeper();
+                draw();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function restart() {
+            goals = 0;
+            misses = 0;
+            ball = null;
+            canShoot = true;
+            goalkeeper.x = canvas.width / 2;
+            updateStats();
+        }
+        
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+        
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (y < 200) {
+                shootBall(x, y);
+            }
+        });
+        
+        gameLoop();
+    </script>
+</body>
+</html>
