@@ -1,1 +1,466 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Combat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            text-align: center;
+            position: relative;
+        }
+        h1 {
+            color: #FF4500;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+        }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .stat {
+            background: linear-gradient(135deg, #FF4500, #FF6347);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            border: 3px solid #FFD700;
+            box-shadow: 0 5px 15px rgba(255, 69, 0, 0.4);
+        }
+        #gameCanvas {
+            border: 5px solid #8B4513;
+            background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 100%);
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        }
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 69, 0, 0.95);
+            padding: 40px;
+            border: 5px solid #FFD700;
+            border-radius: 20px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+            z-index: 100;
+        }
+        #gameOver h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .game-stats {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #FFD700;
+            color: #8B4513;
+            border: 3px solid #8B4513;
+            border-radius: 15px;
+            font-weight: bold;
+            box-shadow: 0 5px 0 #B8860B;
+            transition: all 0.1s;
+        }
+        button:hover {
+            background: #FFA500;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #B8860B;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #B8860B;
+        }
+        #instructions {
+            color: #8B4513;
+            font-size: 16px;
+            margin: 15px 0;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>✈️ AIR COMBAT ✈️</h1>
+        <div id="stats">
+            <div class="stat">🎯 Skóre: <span id="score">0</span></div>
+            <div class="stat">❤️ HP: <span id="health">100</span></div>
+            <div class="stat">💣 Zničeno: <span id="kills">0</span></div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="instructions">🖱️ Myš = pohyb | Click = střelba | Sestřelte nepřátelská letadla!</div>
+        
+        <button onclick="restart()">🎮 NOVÁ HRA</button>
+        <button onclick="goHome()">🏠 MENU</button>
+        
+        <div id="gameOver">
+            <h2>💥 SESTŘELEN! 💥</h2>
+            <div class="game-stats">
+                🎯 Finální skóre: <span id="finalScore">0</span><br>
+                💣 Sestřeleno: <span id="finalKills">0</span>
+            </div>
+            <button onclick="restart()">🔄 ZKUSIT ZNOVU</button>
+            <button onclick="goHome()">🏠 MENU</button>
+        </div>
+    </div>
 
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let score = 0;
+        let health = 100;
+        let kills = 0;
+        let gameRunning = true;
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+        
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 100,
+            width: 60,
+            height: 50,
+            speed: 8
+        };
+        
+        let bullets = [];
+        let enemies = [];
+        let enemyBullets = [];
+        let explosions = [];
+        let clouds = [];
+        
+        for (let i = 0; i < 10; i++) {
+            clouds.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 40 + 30,
+                speed: Math.random() * 0.5 + 0.2
+            });
+        }
+        
+        class Enemy {
+            constructor() {
+                this.x = Math.random() * (canvas.width - 60);
+                this.y = -60;
+                this.width = 50;
+                this.height = 40;
+                this.speed = Math.random() * 2 + 1;
+                this.shootTimer = 0;
+                this.direction = Math.random() > 0.5 ? 1 : -1;
+            }
+            
+            update() {
+                this.y += this.speed;
+                this.x += Math.sin(this.y * 0.02) * this.direction * 2;
+                
+                if (this.x < 0) this.x = 0;
+                if (this.x > canvas.width - this.width) this.x = canvas.width - this.width;
+                
+                this.shootTimer++;
+                if (this.shootTimer > 60 && Math.random() < 0.02) {
+                    this.shoot();
+                    this.shootTimer = 0;
+                }
+                
+                return this.y < canvas.height + 100;
+            }
+            
+            shoot() {
+                enemyBullets.push({
+                    x: this.x + this.width / 2,
+                    y: this.y + this.height,
+                    speed: 5
+                });
+            }
+            
+            draw() {
+                // Tělo letadla
+                ctx.fillStyle = '#8B0000';
+                ctx.beginPath();
+                ctx.moveTo(this.x + this.width / 2, this.y);
+                ctx.lineTo(this.x, this.y + this.height);
+                ctx.lineTo(this.x + this.width, this.y + this.height);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Křídla
+                ctx.fillStyle = '#A52A2A';
+                ctx.fillRect(this.x - 10, this.y + 20, this.width + 20, 8);
+            }
+        }
+        
+        function drawPlayer() {
+            // Tělo letadla
+            ctx.fillStyle = '#4169E1';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#4169E1';
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y);
+            ctx.lineTo(player.x - player.width / 2, player.y + player.height);
+            ctx.lineTo(player.x + player.width / 2, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Křídla
+            ctx.fillStyle = '#1E90FF';
+            ctx.fillRect(player.x - player.width / 2 - 15, player.y + 25, player.width + 30, 10);
+            
+            // Kokpit
+            ctx.fillStyle = '#00BFFF';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y + 15, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawClouds() {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            clouds.forEach(cloud => {
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.size, cloud.y, cloud.size * 0.8, 0, Math.PI * 2);
+                ctx.arc(cloud.x - cloud.size, cloud.y, cloud.size * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                cloud.y += cloud.speed;
+                if (cloud.y > canvas.height + cloud.size) {
+                    cloud.y = -cloud.size;
+                    cloud.x = Math.random() * canvas.width;
+                }
+            });
+        }
+        
+        function drawBullets() {
+            ctx.fillStyle = '#FFD700';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#FFD700';
+            bullets.forEach(bullet => {
+                ctx.fillRect(bullet.x - 2, bullet.y, 4, 15);
+            });
+            
+            ctx.fillStyle = '#FF0000';
+            ctx.shadowColor = '#FF0000';
+            enemyBullets.forEach(bullet => {
+                ctx.fillRect(bullet.x - 2, bullet.y, 4, 12);
+            });
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawExplosions() {
+            explosions.forEach(exp => {
+                ctx.strokeStyle = `rgba(255, ${200 - exp.frame * 20}, 0, ${1 - exp.frame / 10})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(exp.x, exp.y, exp.frame * 8, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            // Plynulý pohyb hráče
+            const dx = mouseX - player.x;
+            const dy = mouseY - player.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > player.speed) {
+                player.x += (dx / distance) * player.speed;
+                player.y += (dy / distance) * player.speed;
+            }
+            
+            // Hranice
+            if (player.x < 30) player.x = 30;
+            if (player.x > canvas.width - 30) player.x = canvas.width - 30;
+            if (player.y < 30) player.y = 30;
+            if (player.y > canvas.height - 30) player.y = canvas.height - 30;
+            
+            // Spawn nepřátel
+            if (Math.random() < 0.02) {
+                enemies.push(new Enemy());
+            }
+            
+            // Update bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= 10;
+                if (bullets[i].y < 0) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+                
+                // Kolize s nepřáteli
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    if (bullets[i] && 
+                        bullets[i].x > enemies[j].x &&
+                        bullets[i].x < enemies[j].x + enemies[j].width &&
+                        bullets[i].y > enemies[j].y &&
+                        bullets[i].y < enemies[j].y + enemies[j].height) {
+                        
+                        explosions.push({x: enemies[j].x + enemies[j].width / 2, y: enemies[j].y + enemies[j].height / 2, frame: 0});
+                        enemies.splice(j, 1);
+                        bullets.splice(i, 1);
+                        score += 100;
+                        kills++;
+                        updateStats();
+                        break;
+                    }
+                }
+            }
+            
+            // Update enemy bullets
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                enemyBullets[i].y += enemyBullets[i].speed;
+                
+                if (enemyBullets[i].y > canvas.height) {
+                    enemyBullets.splice(i, 1);
+                    continue;
+                }
+                
+                // Kolize s hráčem
+                const dx = enemyBullets[i].x - player.x;
+                const dy = enemyBullets[i].y - player.y;
+                if (Math.sqrt(dx * dx + dy * dy) < 30) {
+                    health -= 10;
+                    updateStats();
+                    enemyBullets.splice(i, 1);
+                    
+                    if (health <= 0) {
+                        endGame();
+                    }
+                }
+            }
+            
+            // Update enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                if (!enemies[i].update()) {
+                    enemies.splice(i, 1);
+                }
+            }
+            
+            // Update explosions
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                explosions[i].frame++;
+                if (explosions[i].frame > 10) {
+                    explosions.splice(i, 1);
+                }
+            }
+        }
+        
+        function draw() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#B0E0E6');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawClouds();
+            drawExplosions();
+            enemies.forEach(enemy => enemy.draw());
+            drawBullets();
+            drawPlayer();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        function updateStats() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('health').textContent = health;
+            document.getElementById('kills').textContent = kills;
+        }
+        
+        function endGame() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalKills').textContent = kills;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function restart() {
+            score = 0;
+            health = 100;
+            kills = 0;
+            bullets = [];
+            enemies = [];
+            enemyBullets = [];
+            explosions = [];
+            gameRunning = true;
+            
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
+            
+            document.getElementById('gameOver').style.display = 'none';
+            updateStats();
+            gameLoop();
+        }
+        
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+        
+        // Ovládání
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+        
+        canvas.addEventListener('click', () => {
+            if (gameRunning) {
+                bullets.push({
+                    x: player.x,
+                    y: player.y
+                });
+            }
+        });
+        
+        // Auto střelba
+        setInterval(() => {
+            if (gameRunning) {
+                bullets.push({
+                    x: player.x,
+                    y: player.y
+                });
+            }
+        }, 200);
+        
+        // Start
+        gameLoop();
+    </script>
+</body>
+</html>
