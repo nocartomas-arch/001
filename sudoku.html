@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sudoku</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a33; --grid:#1c2750; --accent:#7aa2ff; --good:#3bd671; --bad:#ff5c5c; --text:#e7ecff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(1200px 600px at 20% 0%,#101a3f,#0b1020);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;color:var(--text)}
+  .wrap{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;justify-content:center;padding:20px}
+  .panel{background:var(--panel);padding:16px 18px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  h1{margin:0 0 6px;font-weight:800;letter-spacing:.3px}
+  .meta{opacity:.9;font-size:.95rem;margin-bottom:10px}
+  .topbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 14px}
+  button{
+    background:var(--accent);color:#071028;border:0;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer;
+    box-shadow:0 6px 0 #294b9b;transition:.12s transform,.12s box-shadow
+  }
+  button:hover{transform:translateY(-1px);box-shadow:0 8px 0 #294b9b}
+  button:active{transform:translateY(2px);box-shadow:0 3px 0 #294b9b}
+  .ghost{background:#28335f;color:#cdd7ff;box-shadow:none}
+  .good{background:var(--good);box-shadow:0 6px 0 #1c8040}
+  .bad{background:var(--bad);box-shadow:0 6px 0 #a33131}
+  .grid{
+    width:min(92vw,540px);aspect-ratio:1;background:var(--grid);border-radius:14px;padding:6px;
+    box-shadow:inset 0 0 0 4px #243065, 0 15px 50px rgba(0,0,0,.5);display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);gap:3px;position:relative
+  }
+  .cell{
+    background:#0e1533;border-radius:8px;display:grid;place-items:center;cursor:pointer;position:relative;user-select:none;
+    font-weight:800;font-size: clamp(16px, 2.2vw, 26px); color:#dfe6ff; transition:.08s background
+  }
+  .cell.given{background:#0f1a41;color:#94a5ff}
+  .cell.selected{outline:3px solid var(--accent);z-index:2}
+  .cell.same{background:#122055}
+  .cell.error{animation:shake .25s;box-shadow:inset 0 0 0 3px var(--bad)}
+  .note{position:absolute;inset:6px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px;font-size:10px;color:#89a0ff;opacity:.9}
+  .note span{display:grid;place-items:center;border-radius:4px}
+  @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-2px)}50%{transform:translateX(2px)}75%{transform:translateX(-2px)}100%{transform:translateX(0)}}
+  .subgridLines:before,.subgridLines:after{
+    content:"";position:absolute;inset:0;border-radius:12px;pointer-events:none
+  }
+  .subgridLines:before{box-shadow:inset 0 0 0 4px #243065}
+  .subgridLines:after{
+    background:
+      linear-gradient(#243065,#243065) 0 33.33%/100% 4px no-repeat,
+      linear-gradient(#243065,#243065) 0 66.66%/100% 4px no-repeat,
+      linear-gradient(90deg,#243065,#243065) 33.33% 0/4px 100% no-repeat,
+      linear-gradient(90deg,#243065,#243065) 66.66% 0/4px 100% no-repeat;
+    opacity:.9;border-radius:12px
+  }
+  .kb{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;margin-top:14px}
+  .kb button{padding:10px 0}
+  .info{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .pill{background:#243065;padding:8px 12px;border-radius:999px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel" style="flex:1;min-width:300px">
+      <h1>🧩 Sudoku</h1>
+      <div class="meta">Šipky / myš pro výběr • 1–9 pro zadání • N pro poznámky • Backspace mazání</div>
+      <div class="topbar">
+        <button id="newEasy">Nové – Easy</button>
+        <button id="newMed" class="ghost">Medium</button>
+        <button id="newHard" class="ghost">Hard</button>
+        <button id="solve" class="ghost">Vyřešit</button>
+        <button id="clear" class="ghost">Vyčistit</button>
+        <button id="notes" class="ghost">Poznámky: <span id="notesState">VYP</span></button>
+      </div>
+      <div class="info">
+        <div class="pill">⏱️ Čas: <span id="time">00:00</span></div>
+        <div class="pill">🔥 Chyby: <span id="mist">0</span></div>
+        <div class="pill">🏆 Best: <span id="best">–</span></div>
+      </div>
+      <div id="grid" class="grid subgridLines" aria-label="Sudoku mřížka"></div>
+      <div class="kb">
+        <button data-num="1">1</button><button data-num="2">2</button><button data-num="3">3</button>
+        <button data-num="4">4</button><button data-num="5">5</button><button data-num="6">6</button>
+        <button data-num="7">7</button><button data-num="8">8</button><button data-num="9">9</button>
+        <button id="kbDel" class="bad">Del</button>
+      </div>
+    </div>
+  </div>
+<script>
+/* ---------- Utils ---------- */
+const $ = s=>document.querySelector(s), $$ = s=>document.querySelectorAll(s);
+const fmt=t=>`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
+
+/* ---------- State ---------- */
+let grid=[], solution=[], givenMask=[], notesMode=false, sel={r:0,c:0}, timer=0, tik=null, mistakes=0, started=false;
+
+/* ---------- Board ---------- */
+const G=$('#grid');
+function drawBoard(){
+  G.innerHTML='';
+  for(let r=0;r<9;r++){
+    for(let c=0;c<9;c++){
+      const d=document.createElement('div');
+      d.className='cell';
+      d.dataset.r=r; d.dataset.c=c;
+      if(givenMask[r][c]) d.classList.add('given');
+      if(grid[r][c]) d.textContent=grid[r][c];
+      else d.innerHTML = `<div class="note">${
+        Array.from({length:9},(_,i)=>`<span data-n="${i+1}"></span>`).join('')
+      }</div>`;
+      d.addEventListener('click',()=>select(r,c));
+      G.appendChild(d);
+    }
+  }
+  highlight();
+}
+function highlight(){
+  $$('.cell').forEach(e=>e.classList.remove('selected','same','error'));
+  const k = grid[sel.r][sel.c];
+  $$('.cell').forEach(e=>{
+    const r=+e.dataset.r,c=+e.dataset.c;
+    if(r===sel.r||c===sel.c|| (Math.floor(r/3)===Math.floor(sel.r/3) && Math.floor(c/3)===Math.floor(sel.c/3))) e.classList.add('same');
+    if(r===sel.r && c===sel.c) e.classList.add('selected');
+    if(k && grid[r][c]===k && !(r===sel.r && c===sel.c)) e.classList.add('same');
+  });
+}
+function select(r,c){ sel={r,c}; highlight(); }
+
+/* ---------- Generation / Solve ---------- */
+function emptyBoard(){ return Array.from({length:9},()=>Array(9).fill(0)); }
+function canPlace(b,r,c,v){
+  for(let i=0;i<9;i++) if(b[r][i]===v||b[i][c]===v) return false;
+  const R=Math.floor(r/3)*3,C=Math.floor(c/3)*3;
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++) if(b[R+i][C+j]===v) return false;
+  return true;
+}
+function solveBoard(b){
+  for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(!b[r][c]){
+    for(let v=1;v<=9;v++) if(canPlace(b,r,c,v)){ b[r][c]=v; if(solveBoard(b)) return true; b[r][c]=0; }
+    return false;
+  }
+  return true;
+}
+function generate(full=false){
+  const b=emptyBoard();
+  // fill diagonal 3x3 blocks to speed up
+  for(let d=0;d<3;d++){
+    const nums=[1,2,3,4,5,6,7,8,9].sort(()=>Math.random()-0.5);
+    for(let i=0;i<3;i++) for(let j=0;j<3;j++) b[d*3+i][d*3+j]=nums[i*3+j];
+  }
+  solveBoard(b);
+  const solved=JSON.parse(JSON.stringify(b));
+  if(full) return solved;
+  // remove cells according to difficulty
+  let remove = diffRemove; // from setDifficulty
+  const mask = Array.from({length:9},()=>Array(9).fill(true));
+  while(remove>0){
+    const r= (Math.random()*9)|0, c=(Math.random()*9)|0;
+    if(b[r][c]!==0){
+      const keep=b[r][c]; b[r][c]=0;
+      // ensure uniqueness (quick check by putting a different number fails)
+      let counter=0;
+      for(let v=1;v<=9;v++){
+        if(v===keep) continue;
+        if(canPlace(b,r,c,v)) counter++;
+        if(counter>0) break;
+      }
+      mask[r][c]=false; // not given anymore
+      remove--;
+    }
+  }
+  return {puzzle:b, solved, mask};
+}
+
+/* ---------- Difficulty ---------- */
+let diffRemove=46; // default Easy
+function setDifficulty(level){
+  if(level==='easy') diffRemove=46;
+  if(level==='med') diffRemove=52;
+  if(level==='hard') diffRemove=58;
+  startNew();
+}
+
+/* ---------- Game Flow ---------- */
+function startNew(){
+  const g=generate();
+  grid=g.puzzle; solution=g.solved; givenMask=g.mask;
+  mistakes=0; started=false; timer=0; clearInterval(tik); $('#time').textContent='00:00'; $('#mist').textContent='0';
+  drawBoard(); select(0,0);
+}
+function startTimer(){ if(tik) return; tik=setInterval(()=>{timer++; $('#time').textContent=fmt(timer)},1000); }
+
+/* ---------- Input ---------- */
+function place(val){
+  const {r,c}=sel; if(givenMask[r][c]) return;
+  startTimer(); started=true;
+  if(notesMode){
+    const cell = G.children[r*9+c]; const spans=cell.querySelectorAll('.note span');
+    spans[val-1].textContent = spans[val-1].textContent ? '' : val;
+    return;
+  }
+  grid[r][c]=val;
+  // clear notes
+  const cell = G.children[r*9+c];
+  cell.innerHTML=''; cell.textContent=val; cell.classList.remove('error');
+  // validate immediate
+  if(val!==solution[r][c]){
+    mistakes++; $('#mist').textContent=mistakes; cell.classList.add('error');
+  } else {
+    cell.classList.remove('error');
+    // win?
+    if(grid.every((row,i)=>row.every((v,j)=>v===solution[i][j]))){
+      clearInterval(tik);
+      const bestKey='sudoku_best';
+      const best=+localStorage.getItem(bestKey)||Infinity;
+      if(timer<best){ localStorage.setItem(bestKey,String(timer)); }
+      $('#best').textContent = (Math.min(best,timer)===Infinity)?'–':fmt(Math.min(best,timer));
+      alert(`🎉 Hotovo! Čas: ${fmt(timer)}`);
+    }
+  }
+  highlight();
+}
+function erase(){
+  const {r,c}=sel; if(givenMask[r][c]) return;
+  grid[r][c]=0;
+  const cell=G.children[r*9+c];
+  cell.innerHTML = `<div class="note">${Array.from({length:9},(_,i)=>`<span data-n="${i+1}"></span>`).join('')}</div>`;
+  cell.classList.remove('error');
+}
+document.addEventListener('keydown',e=>{
+  const k=e.key;
+  if(/^[1-9]$/.test(k)) place(+k);
+  else if(k==='Backspace' || k==='Delete') erase();
+  else if(k==='n' || k==='N'){ notesMode=!notesMode; $('#notesState').textContent=notesMode?'ZAP':'VYP'; }
+  else if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)){
+    if(k==='ArrowUp') sel.r=(sel.r+8)%9;
+    if(k==='ArrowDown') sel.r=(sel.r+1)%9;
+    if(k==='ArrowLeft') sel.c=(sel.c+8)%9;
+    if(k==='ArrowRight') sel.c=(sel.c+1)%9;
+    highlight();
+  }
+});
+$$('.kb button[data-num]').forEach(b=>b.addEventListener('click',()=>place(+b.dataset.num)));
+$('#kbDel').addEventListener('click',erase);
+
+$('#newEasy').onclick=()=>setDifficulty('easy');
+$('#newMed').onclick=()=>setDifficulty('med');
+$('#newHard').onclick=()=>setDifficulty('hard');
+$('#solve').onclick=()=>{
+  grid = JSON.parse(JSON.stringify(solution));
+  drawBoard(); clearInterval(tik); $('#time').textContent=fmt(timer);
+};
+$('#clear').onclick=()=>{
+  for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(!givenMask[r][c]) grid[r][c]=0;
+  drawBoard();
+};
+$('#notes').onclick=()=>{ notesMode=!notesMode; $('#notesState').textContent=notesMode?'ZAP':'VYP'; };
+
+(function init(){
+  const best=+localStorage.getItem('sudoku_best')||Infinity;
+  $('#best').textContent = (best===Infinity)?'–':fmt(best);
+  // make a fresh full solution to derive puzzle
+  const full = generate(true);
+  // create puzzle from solved with default difficulty
+  startNew();
+})();
+</script>
+</body>
+</html>
