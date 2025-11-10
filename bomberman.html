@@ -1,1 +1,539 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bomberman</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        #gameContainer {
+            text-align: center;
+        }
+        h1 {
+            color: #FF6B35;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #FF6B35;
+        }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .stat {
+            background: linear-gradient(135deg, #FF6B35, #F7931E);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 15px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        #gameCanvas {
+            border: 5px solid #FF6B35;
+            background: #2a2a3e;
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 0 40px rgba(255, 107, 53, 0.5);
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #FF6B35;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #F7931E;
+        }
+        #instructions {
+            color: #FF6B35;
+            font-size: 16px;
+            margin: 15px 0;
+            text-shadow: 0 0 10px #FF6B35;
+        }
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(26, 26, 46, 0.95);
+            padding: 40px;
+            border: 5px solid #FF6B35;
+            border-radius: 20px;
+            color: #FF6B35;
+            text-align: center;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>💣 BOMBERMAN 💣</h1>
+        <div id="stats">
+            <div class="stat">💎 Skóre: <span id="score">0</span></div>
+            <div class="stat">💣 Bomby: <span id="bombs">3</span></div>
+            <div class="stat">👾 Nepřátelé: <span id="enemies">5</span></div>
+        </div>
+        <canvas id="gameCanvas" width="650" height="650"></canvas>
+        <div id="instructions">⬆️⬇️⬅️➡️ ŠIPKY = pohyb | MEZERNÍK = bomba | Zničte všechny nepřátele!</div>
+        
+        <button onclick="restart()">🔄 RESTART</button>
+        <button onclick="goHome()">🏠 MENU</button>
+        
+        <div id="gameOver">
+            <h2 id="gameOverTitle">💥 GAME OVER 💥</h2>
+            <div style="font-size: 24px; margin: 20px 0;">
+                💎 Finální skóre: <span id="finalScore">0</span>
+            </div>
+            <button onclick="restart()">🔄 ZKUSIT ZNOVU</button>
+            <button onclick="goHome()">🏠 MENU</button>
+        </div>
+    </div>
 
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const CELL = 50;
+        const GRID = 13;
+        
+        let score = 0;
+        let gameRunning = true;
+        let maxBombs = 3;
+        let bombRange = 2;
+        
+        const player = {
+            x: 1,
+            y: 1,
+            moving: false
+        };
+        
+        let enemies = [];
+        let bombs = [];
+        let explosions = [];
+        let powerups = [];
+        
+        const grid = [];
+        
+        function initGrid() {
+            for (let y = 0; y < GRID; y++) {
+                grid[y] = [];
+                for (let x = 0; x < GRID; x++) {
+                    if (x === 0 || x === GRID - 1 || y === 0 || y === GRID - 1) {
+                        grid[y][x] = 'wall';
+                    } else if (x % 2 === 0 && y % 2 === 0) {
+                        grid[y][x] = 'wall';
+                    } else if ((x === 1 || x === 2) && (y === 1 || y === 2)) {
+                        grid[y][x] = 'empty';
+                    } else if (Math.random() < 0.6) {
+                        grid[y][x] = 'brick';
+                    } else {
+                        grid[y][x] = 'empty';
+                    }
+                }
+            }
+        }
+        
+        function spawnEnemies() {
+            enemies = [];
+            for (let i = 0; i < 5; i++) {
+                let x, y;
+                do {
+                    x = Math.floor(Math.random() * (GRID - 2)) + 1;
+                    y = Math.floor(Math.random() * (GRID - 2)) + 1;
+                } while (grid[y][x] !== 'empty' || (x <= 3 && y <= 3));
+                
+                enemies.push({
+                    x: x,
+                    y: y,
+                    direction: ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)],
+                    moveTimer: 0
+                });
+            }
+        }
+        
+        function drawGrid() {
+            for (let y = 0; y < GRID; y++) {
+                for (let x = 0; x < GRID; x++) {
+                    const px = x * CELL;
+                    const py = y * CELL;
+                    
+                    if (grid[y][x] === 'wall') {
+                        ctx.fillStyle = '#4a4a4a';
+                        ctx.fillRect(px, py, CELL, CELL);
+                        ctx.strokeStyle = '#2a2a2a';
+                        ctx.strokeRect(px, py, CELL, CELL);
+                    } else if (grid[y][x] === 'brick') {
+                        ctx.fillStyle = '#8B4513';
+                        ctx.fillRect(px, py, CELL, CELL);
+                        ctx.strokeStyle = '#654321';
+                        for (let i = 0; i < 3; i++) {
+                            ctx.strokeRect(px, py + i * CELL / 3, CELL, CELL / 3);
+                        }
+                    } else {
+                        ctx.fillStyle = '#2a2a3e';
+                        ctx.fillRect(px, py, CELL, CELL);
+                    }
+                }
+            }
+        }
+        
+        function drawPlayer() {
+            const px = player.x * CELL + CELL / 2;
+            const py = player.y * CELL + CELL / 2;
+            
+            // Tělo
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(px, py, CELL / 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Oči
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(px - 5, py - 5, 3, 0, Math.PI * 2);
+            ctx.arc(px + 5, py - 5, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Úsměv
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(px, py, 8, 0, Math.PI);
+            ctx.stroke();
+        }
+        
+        function drawEnemies() {
+            enemies.forEach(enemy => {
+                const px = enemy.x * CELL + CELL / 2;
+                const py = enemy.y * CELL + CELL / 2;
+                
+                ctx.fillStyle = '#FF0000';
+                ctx.beginPath();
+                ctx.arc(px, py, CELL / 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath();
+                ctx.arc(px - 5, py - 5, 4, 0, Math.PI * 2);
+                ctx.arc(px + 5, py - 5, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        function drawBombs() {
+            bombs.forEach(bomb => {
+                const px = bomb.x * CELL + CELL / 2;
+                const py = bomb.y * CELL + CELL / 2;
+                
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(px, py, CELL / 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Knot
+                ctx.strokeStyle = bomb.timer % 20 < 10 ? '#FFA500' : '#FF4500';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(px, py - CELL / 3);
+                ctx.lineTo(px - 5, py - CELL / 2);
+                ctx.stroke();
+            });
+        }
+        
+        function drawExplosions() {
+            explosions.forEach(exp => {
+                const px = exp.x * CELL + CELL / 2;
+                const py = exp.y * CELL + CELL / 2;
+                
+                ctx.fillStyle = `rgba(255, ${100 + exp.frame * 20}, 0, ${1 - exp.frame / 10})`;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#FF6B35';
+                ctx.beginPath();
+                ctx.arc(px, py, CELL / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+        }
+        
+        function canMove(x, y) {
+            if (x < 0 || x >= GRID || y < 0 || y >= GRID) return false;
+            if (grid[y][x] === 'wall' || grid[y][x] === 'brick') return false;
+            if (bombs.some(b => b.x === x && b.y === y)) return false;
+            return true;
+        }
+        
+        function movePlayer(dx, dy) {
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+            
+            if (canMove(newX, newY)) {
+                player.x = newX;
+                player.y = newY;
+            }
+        }
+        
+        function placeBomb() {
+            if (bombs.length >= maxBombs) return;
+            if (bombs.some(b => b.x === player.x && b.y === player.y)) return;
+            
+            bombs.push({
+                x: player.x,
+                y: player.y,
+                timer: 100,
+                range: bombRange
+            });
+            
+            document.getElementById('bombs').textContent = maxBombs - bombs.length;
+        }
+        
+        function updateBombs() {
+            for (let i = bombs.length - 1; i >= 0; i--) {
+                bombs[i].timer--;
+                
+                if (bombs[i].timer <= 0) {
+                    explodeBomb(bombs[i]);
+                    bombs.splice(i, 1);
+                }
+            }
+            
+            document.getElementById('bombs').textContent = maxBombs - bombs.length;
+        }
+        
+        function explodeBomb(bomb) {
+            const directions = [[0, 0], [0, -1], [0, 1], [-1, 0], [1, 0]];
+            
+            directions.forEach(([dx, dy]) => {
+                for (let i = 0; i < bomb.range; i++) {
+                    const x = bomb.x + dx * i;
+                    const y = bomb.y + dy * i;
+                    
+                    if (x < 0 || x >= GRID || y < 0 || y >= GRID) break;
+                    if (grid[y][x] === 'wall') break;
+                    
+                    explosions.push({x, y, frame: 0});
+                    
+                    if (grid[y][x] === 'brick') {
+                        grid[y][x] = 'empty';
+                        score += 10;
+                        updateScore();
+                        
+                        if (Math.random() < 0.3) {
+                            powerups.push({
+                                x: x,
+                                y: y,
+                                type: Math.random() < 0.5 ? 'bombs' : 'range'
+                            });
+                        }
+                        break;
+                    }
+                    
+                    // Zásah hráče
+                    if (x === player.x && y === player.y) {
+                        endGame(false);
+                    }
+                    
+                    // Zásah nepřátel
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        if (enemies[j].x === x && enemies[j].y === y) {
+                            enemies.splice(j, 1);
+                            score += 100;
+                            updateScore();
+                        }
+                    }
+                }
+            });
+            
+            checkWin();
+        }
+        
+        function updateExplosions() {
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                explosions[i].frame++;
+                if (explosions[i].frame > 10) {
+                    explosions.splice(i, 1);
+                }
+            }
+        }
+        
+        function moveEnemies() {
+            enemies.forEach(enemy => {
+                enemy.moveTimer++;
+                
+                if (enemy.moveTimer > 20) {
+                    enemy.moveTimer = 0;
+                    
+                    if (Math.random() < 0.3) {
+                        enemy.direction = ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)];
+                    }
+                    
+                    let newX = enemy.x;
+                    let newY = enemy.y;
+                    
+                    switch(enemy.direction) {
+                        case 'up': newY--; break;
+                        case 'down': newY++; break;
+                        case 'left': newX--; break;
+                        case 'right': newX++; break;
+                    }
+                    
+                    if (canMove(newX, newY)) {
+                        enemy.x = newX;
+                        enemy.y = newY;
+                    }
+                    
+                    // Kolize s hráčem
+                    if (enemy.x === player.x && enemy.y === player.y) {
+                        endGame(false);
+                    }
+                }
+            });
+        }
+        
+        function checkPowerups() {
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                if (powerups[i].x === player.x && powerups[i].y === player.y) {
+                    if (powerups[i].type === 'bombs') {
+                        maxBombs++;
+                    } else {
+                        bombRange++;
+                    }
+                    powerups.splice(i, 1);
+                }
+            }
+        }
+        
+        function drawPowerups() {
+            powerups.forEach(pu => {
+                const px = pu.x * CELL + CELL / 2;
+                const py = pu.y * CELL + CELL / 2;
+                
+                ctx.fillStyle = pu.type === 'bombs' ? '#FFD700' : '#FF1493';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(pu.type === 'bombs' ? '💣' : '🔥', px, py + 10);
+            });
+        }
+        
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('enemies').textContent = enemies.length;
+        }
+        
+        function checkWin() {
+            if (enemies.length === 0) {
+                endGame(true);
+            }
+        }
+        
+        function endGame(won) {
+            gameRunning = false;
+            document.getElementById('gameOverTitle').textContent = won ? '🏆 VÍTĚZSTVÍ! 🏆' : '💥 GAME OVER 💥';
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            updateBombs();
+            updateExplosions();
+            moveEnemies();
+            checkPowerups();
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#2a2a3e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawGrid();
+            drawPowerups();
+            drawExplosions();
+            drawBombs();
+            drawEnemies();
+            drawPlayer();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        function restart() {
+            score = 0;
+            maxBombs = 3;
+            bombRange = 2;
+            bombs = [];
+            explosions = [];
+            powerups = [];
+            gameRunning = true;
+            
+            player.x = 1;
+            player.y = 1;
+            
+            document.getElementById('gameOver').style.display = 'none';
+            
+            initGrid();
+            spawnEnemies();
+            updateScore();
+            gameLoop();
+        }
+        
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+        
+        // Ovládání
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            if (e.code === 'Space') {
+                e.preventDefault();
+                placeBomb();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        setInterval(() => {
+            if (gameRunning) {
+                if (keys['ArrowUp']) movePlayer(0, -1);
+                if (keys['ArrowDown']) movePlayer(0, 1);
+                if (keys['ArrowLeft']) movePlayer(-1, 0);
+                if (keys['ArrowRight']) movePlayer(1, 0);
+            }
+        }, 150);
+        
+        // Start
+        initGrid();
+        spawnEnemies();
+        updateScore();
+        gameLoop();
+    </script>
+</body>
+</html>
