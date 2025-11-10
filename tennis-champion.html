@@ -1,1 +1,185 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis Champion</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #228B22 0%, #32CD32 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        #gameContainer {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        h1 { color: #228B22; font-size: 3em; margin-bottom: 10px; }
+        #score {
+            font-size: 48px;
+            color: #228B22;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        #gameCanvas {
+            border: 5px solid #228B22;
+            background: #2E8B57;
+            display: block;
+            margin: 20px auto;
+            cursor: none;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #228B22;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        button:hover { background: #32CD32; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🎾 TENNIS CHAMPION 🎾</h1>
+        <div id="score">0 : 0</div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div style="color: #228B22; margin: 15px;">🖱️ Pohyb myší | První na 5 bodů vyhrává!</div>
+        <button onclick="restart()">🔄 RESTART</button>
+        <button onclick="goHome()">🏠 MENU</button>
+    </div>
 
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let playerScore = 0, aiScore = 0;
+        const paddle = {width: 15, height: 100};
+        const player = {x: 10, y: canvas.height / 2 - 50, score: 0};
+        const ai = {x: canvas.width - 25, y: canvas.height / 2 - 50, score: 0};
+        const ball = {x: canvas.width / 2, y: canvas.height / 2, radius: 10, speedX: 5, speedY: 3};
+        
+        function draw() {
+            // Kordot
+            ctx.fillStyle = '#2E8B57';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Čáry
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+            
+            // Pálky
+            ctx.fillStyle = 'white';
+            ctx.fillRect(player.x, player.y, paddle.width, paddle.height);
+            ctx.fillRect(ai.x, ai.y, paddle.width, paddle.height);
+            
+            // Míček
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function update() {
+            // Pohyb míčku
+            ball.x += ball.speedX;
+            ball.y += ball.speedY;
+            
+            // Kolize se stěnami
+            if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
+                ball.speedY *= -1;
+            }
+            
+            // Kolize s pálkami
+            if (ball.x - ball.radius < player.x + paddle.width && 
+                ball.y > player.y && ball.y < player.y + paddle.height) {
+                ball.speedX = Math.abs(ball.speedX) + 0.5;
+                ball.speedY += (ball.y - (player.y + paddle.height / 2)) * 0.1;
+            }
+            
+            if (ball.x + ball.radius > ai.x && 
+                ball.y > ai.y && ball.y < ai.y + paddle.height) {
+                ball.speedX = -Math.abs(ball.speedX) - 0.5;
+                ball.speedY += (ball.y - (ai.y + paddle.height / 2)) * 0.1;
+            }
+            
+            // Body
+            if (ball.x < 0) {
+                aiScore++;
+                resetBall();
+            }
+            if (ball.x > canvas.width) {
+                playerScore++;
+                resetBall();
+            }
+            
+            // AI
+            if (ball.x > canvas.width / 2) {
+                if (ai.y + paddle.height / 2 < ball.y - 10) ai.y += 4;
+                if (ai.y + paddle.height / 2 > ball.y + 10) ai.y -= 4;
+            }
+            
+            // Vítězství
+            if (playerScore >= 5 || aiScore >= 5) {
+                alert(playerScore >= 5 ? '🏆 VYHRÁLI JSTE!' : '😢 AI VYHRÁLA!');
+                restart();
+            }
+            
+            updateScore();
+        }
+        
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.speedX = (Math.random() > 0.5 ? 1 : -1) * 5;
+            ball.speedY = (Math.random() - 0.5) * 4;
+        }
+        
+        function updateScore() {
+            document.getElementById('score').textContent = `${playerScore} : ${aiScore}`;
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function restart() {
+            playerScore = 0;
+            aiScore = 0;
+            resetBall();
+            updateScore();
+        }
+        
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+        
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            player.y = e.clientY - rect.top - paddle.height / 2;
+            if (player.y < 0) player.y = 0;
+            if (player.y > canvas.height - paddle.height) player.y = canvas.height - paddle.height;
+        });
+        
+        gameLoop();
+    </script>
+</body>
+</html>
