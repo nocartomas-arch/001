@@ -57,7 +57,7 @@
             margin: 20px auto;
             box-shadow: 0 0 40px rgba(255, 215, 0, 0.6);
         }
-        #gameOver, #paused {
+        #gameOver, #paused, #startScreen, #leaderboardModal {
             display: none;
             position: absolute;
             top: 50%;
@@ -120,30 +120,34 @@
             text-shadow: 0 0 10px #00FF00;
             font-weight: bold;
         }
-        #leaderboard {
-            margin-top: 20px;
-            background: rgba(10, 10, 30, 0.85);
+        #startScreen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        #leaderboardModal {
+            background: rgba(10, 10, 30, 0.95);
             border: 3px solid #FFD700;
             border-radius: 15px;
-            padding: 20px;
+            padding: 20px 30px;
             color: #FFD700;
-            width: 400px;
-            margin-left: auto;
-            margin-right: auto;
-            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            width: 420px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+            z-index: 120;
         }
-        #leaderboard h3 {
+        #leaderboardModal h3 {
             font-size: 24px;
             margin-bottom: 10px;
             text-shadow: 0 0 10px #FF4500;
         }
-        #leaderboard ol {
+        #leaderboardModal ol {
             list-style: none;
             padding: 0;
             margin: 0;
             text-align: left;
         }
-        #leaderboard li {
+        #leaderboardModal li {
             display: flex;
             justify-content: space-between;
             padding: 8px 12px;
@@ -152,8 +156,11 @@
             border-radius: 10px;
             font-size: 16px;
         }
-        #leaderboard li span {
+        #leaderboardModal li span {
             color: #FFFFFF;
+        }
+        #leaderboardModal button {
+            margin-top: 15px;
         }
         #saveScore {
             margin-top: 20px;
@@ -202,6 +209,7 @@
                 <button id="saveButton" onclick="saveResult()">💾 ULOŽIT VÝSLEDEK</button>
                 <div id="saveMessage"></div>
             </div>
+            <button onclick="openLeaderboard()">🏆 TOP 10</button>
             <button onclick="restart()">🔄 ZKUSIT ZNOVU</button>
             <button onclick="goHome()">🏠 MENU</button>
         </div>
@@ -212,9 +220,17 @@
             <button onclick="restart()">🔄 RESTART</button>
             <button onclick="goHome()">🏠 MENU</button>
         </div>
-        <div id="leaderboard">
+        <div id="startScreen">
+            <h2>🚦 PŘIPRAV SE!</h2>
+            <p>Stiskni tlačítko START a usedni za volant. Vyhýbej se autům a sbírej mince!</p>
+            <button onclick="startGame()">▶️ START</button>
+            <button onclick="openLeaderboard()">🏆 TOP 10</button>
+            <p id="startHint">(ENTER nebo MEZERNÍK také spustí závod)</p>
+        </div>
+        <div id="leaderboardModal">
             <h3>🏆 TOP 10 UJETÁ VZDÁLENOST</h3>
             <ol id="leaderboardList"></ol>
+            <button onclick="closeLeaderboard()">✖️ ZAVŘÍT</button>
         </div>
     </div>
 
@@ -222,7 +238,7 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        let gameRunning = true;
+        let gameRunning = false;
         let paused = false;
         let score = 0;
         let distance = 0;
@@ -230,6 +246,7 @@
         let speed = 5;
         let maxSpeed = 15;
         let lastTimestamp = null;
+        let startMenuActive = true;
 
         const HIGH_SCORES_KEY = 'turboRacerHighScores';
         let highScores = loadHighScores();
@@ -368,6 +385,21 @@
         }
 
         renderHighScores();
+
+        function openLeaderboard() {
+            renderHighScores();
+            const modal = document.getElementById('leaderboardModal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
+
+        function closeLeaderboard() {
+            const modal = document.getElementById('leaderboardModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
 
         function createEnemy() {
             const lane = Math.floor(Math.random() * 3);
@@ -661,6 +693,7 @@
                 nameInput.value = '';
                 nameInput.focus();
             }
+            startMenuActive = false;
         }
 
         function togglePause() {
@@ -687,6 +720,7 @@
 
             document.getElementById('gameOver').style.display = 'none';
             document.getElementById('paused').style.display = 'none';
+            closeLeaderboard();
 
             updateScore();
             document.getElementById('distance').textContent = formatNumber(0);
@@ -703,21 +737,38 @@
             requestAnimationFrame(gameLoop);
         }
 
+        function startGame() {
+            const startScreen = document.getElementById('startScreen');
+            if (startScreen) {
+                startScreen.style.display = 'none';
+            }
+            startMenuActive = false;
+            closeLeaderboard();
+            restart();
+        }
+
         function goHome() {
             window.location.href = 'index.html';
         }
-        
+
         // Ovládání
         const keys = {};
-        
+
         document.addEventListener('keydown', (e) => {
             keys[e.key] = true;
-            
+
+            if (startMenuActive && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                startGame();
+                return;
+            }
+
             if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
                 if (gameRunning) togglePause();
+                else closeLeaderboard();
             }
         });
-        
+
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
         });
@@ -737,7 +788,10 @@
         updateScore();
         updateSpeed();
         document.getElementById('distance').textContent = formatNumber(0);
-        requestAnimationFrame(gameLoop);
+        const startScreen = document.getElementById('startScreen');
+        if (startScreen) {
+            startScreen.style.display = 'flex';
+        }
     </script>
 </body>
 </html>
