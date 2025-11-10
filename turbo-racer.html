@@ -120,34 +120,30 @@
             text-shadow: 0 0 10px #00FF00;
             font-weight: bold;
         }
-        #startScreen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-        #leaderboardModal {
-            background: rgba(10, 10, 30, 0.95);
+        #leaderboard {
+            margin-top: 20px;
+            background: rgba(10, 10, 30, 0.85);
             border: 3px solid #FFD700;
             border-radius: 15px;
-            padding: 20px 30px;
+            padding: 20px;
             color: #FFD700;
-            width: 420px;
-            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
-            z-index: 120;
+            width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
         }
-        #leaderboardModal h3 {
+        #leaderboard h3 {
             font-size: 24px;
             margin-bottom: 10px;
             text-shadow: 0 0 10px #FF4500;
         }
-        #leaderboardModal ol {
+        #leaderboard ol {
             list-style: none;
             padding: 0;
             margin: 0;
             text-align: left;
         }
-        #leaderboardModal li {
+        #leaderboard li {
             display: flex;
             justify-content: space-between;
             padding: 8px 12px;
@@ -156,11 +152,8 @@
             border-radius: 10px;
             font-size: 16px;
         }
-        #leaderboardModal li span {
+        #leaderboard li span {
             color: #FFFFFF;
-        }
-        #leaderboardModal button {
-            margin-top: 15px;
         }
         #saveScore {
             margin-top: 20px;
@@ -209,7 +202,6 @@
                 <button id="saveButton" onclick="saveResult()">💾 ULOŽIT VÝSLEDEK</button>
                 <div id="saveMessage"></div>
             </div>
-            <button onclick="openLeaderboard()">🏆 TOP 10</button>
             <button onclick="restart()">🔄 ZKUSIT ZNOVU</button>
             <button onclick="goHome()">🏠 MENU</button>
         </div>
@@ -220,17 +212,9 @@
             <button onclick="restart()">🔄 RESTART</button>
             <button onclick="goHome()">🏠 MENU</button>
         </div>
-        <div id="startScreen">
-            <h2>🚦 PŘIPRAV SE!</h2>
-            <p>Stiskni tlačítko START a usedni za volant. Vyhýbej se autům a sbírej mince!</p>
-            <button onclick="startGame()">▶️ START</button>
-            <button onclick="openLeaderboard()">🏆 TOP 10</button>
-            <p id="startHint">(ENTER nebo MEZERNÍK také spustí závod)</p>
-        </div>
-        <div id="leaderboardModal">
+        <div id="leaderboard">
             <h3>🏆 TOP 10 UJETÁ VZDÁLENOST</h3>
             <ol id="leaderboardList"></ol>
-            <button onclick="closeLeaderboard()">✖️ ZAVŘÍT</button>
         </div>
     </div>
 
@@ -246,7 +230,6 @@
         let speed = 5;
         let maxSpeed = 15;
         let lastTimestamp = null;
-        let startMenuActive = true;
 
         const HIGH_SCORES_KEY = 'turboRacerHighScores';
         let highScores = loadHighScores();
@@ -317,10 +300,6 @@
             localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(highScores));
         }
 
-        const formatNumber = (value) => {
-            return Number.isFinite(value) ? value.toLocaleString('cs-CZ') : value;
-        };
-
         function renderHighScores() {
             const list = document.getElementById('leaderboardList');
             if (!list) return;
@@ -339,6 +318,7 @@
                 nameSpan.textContent = `${index + 1}. ${entry.name}`;
                 const resultSpan = document.createElement('span');
                 resultSpan.textContent = `${formatNumber(entry.distance)} m | Skóre ${formatNumber(entry.score)}`;
+                resultSpan.textContent = `${entry.distance} m | Skóre ${entry.score}`;
                 item.appendChild(nameSpan);
                 item.appendChild(resultSpan);
                 list.appendChild(item);
@@ -607,6 +587,7 @@
             const metersPerSecond = (speed * 20) / 3.6;
             distance += metersPerSecond * deltaTime;
             document.getElementById('distance').textContent = formatNumber(Math.round(distance));
+            document.getElementById('distance').textContent = Math.round(distance);
 
             // Zvýšení levelu a rychlosti
             const newLevel = Math.floor(distance / 500) + 1;
@@ -678,6 +659,8 @@
             gameRunning = false;
             document.getElementById('finalScore').textContent = formatNumber(score);
             document.getElementById('finalDistance').textContent = formatNumber(Math.round(distance));
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalDistance').textContent = Math.round(distance);
             document.getElementById('finalLevel').textContent = level;
             document.getElementById('gameOver').style.display = 'block';
             const saveButton = document.getElementById('saveButton');
@@ -792,6 +775,7 @@
         if (startScreen) {
             startScreen.style.display = 'flex';
         }
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
