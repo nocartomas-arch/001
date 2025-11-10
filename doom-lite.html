@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DOOM Lite (Raycaster)</title>
+<style>
+  body{margin:0;background:#000;color:#0f0;font-family:Consolas,monospace}
+  #ui{position:fixed;top:8px;left:8px;background:#0008;border:1px solid #0f08;border-radius:8px;padding:6px 10px}
+  canvas{display:block;width:100%;max-width:980px;height:520px;margin:38px auto;border:2px solid #0f0}
+</style>
+</head>
+<body>
+<div id="ui">WASD pohyb • ← → otáčení • Space střelba</div>
+<canvas id="c" width="640" height="360"></canvas>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const map=[
+"111111111111",
+"1..2....3..1",
+"1..1....1..1",
+"1..1....1..1",
+"1..0E..01..1",
+"1..1....1..1",
+"1..1....1..1",
+"1..3....2..1",
+"111111111111"
+];
+const W=map[0].length,H=map.length,T=1.0;
+let px=2.5, py=4.5, ang=0, fov=Math.PI/3, vel=0, side=0;
+const keys={}; addEventListener('keydown',e=>keys[e.key]=true); addEventListener('keyup',e=>keys[e.key]=false);
+function cell(x,y){ if(x<0||y<0||x>=W||y>=H) return '1'; return map[y|0][x|0]; }
+function step(){
+  // input
+  vel=(keys['w']?0.04:0)-(keys['s']?0.04:0);
+  side=(keys['d']?0.04:0)-(keys['a']?0.04:0);
+  if(keys['ArrowLeft']) ang-=0.04;
+  if(keys['ArrowRight']) ang+=0.04;
+
+  // move
+  const nx=px+Math.cos(ang)*vel + Math.cos(ang+Math.PI/2)*side;
+  const ny=py+Math.sin(ang)*vel + Math.sin(ang+Math.PI/2)*side;
+  if(cell(nx,py)==='.'||cell(nx,py)==='0'||cell(nx,py)==='E') px=nx;
+  if(cell(px,ny)==='.'||cell(px,ny)==='0'||cell(px,ny)==='E') py=ny;
+
+  // render
+  x.fillStyle='#000'; x.fillRect(0,0,c.width,c.height);
+  for(let col=0; col<c.width; col++){
+    const ra = (ang - fov/2) + (col/c.width)*fov;
+    let dist=0, hit=false, tex='1';
+    const step=0.02;
+    let rx=px, ry=py;
+    while(!hit && dist<16){
+      rx+=Math.cos(ra)*step; ry+=Math.sin(ra)*step; dist+=step;
+      const t=cell(rx,ry);
+      if(t!=='.' && t!=='0' && t!=='E'){ hit=true; tex=t; }
+    }
+    const h = Math.min(c.height, (c.height)/(dist*Math.cos(ra-ang)+0.0001));
+    const shade = Math.max(0, 1.2 - dist*0.15);
+    // wall color by tex
+    let colr = tex==='1'?'#5ff':'#f5f'; if(tex==='3') colr='#ff5';
+    x.strokeStyle=colr; x.globalAlpha=shade;
+    x.beginPath(); x.moveTo(col+0.5, (c.height-h)/2); x.lineTo(col+0.5, (c.height+h)/2); x.stroke();
+    x.globalAlpha=1;
+  }
+  // floor/ceiling simple gradient
+  const grd=x.createLinearGradient(0,0,0,c.height); grd.addColorStop(0,'#111'); grd.addColorStop(.5,'#111'); grd.addColorStop(1,'#030'); x.fillStyle=grd; x.fillRect(0,c.height/2,c.width,c.height/2);
+
+  requestAnimationFrame(step);
+}
+requestAnimationFrame(step);
+</script>
+</body>
+</html>
