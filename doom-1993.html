@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Doom (1993) – Webová pocta legendě</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #2a2a2a, #060606 60%);
+      color: #f5f5f5;
+      font-family: 'Share Tech Mono', 'Consolas', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px;
+    }
+
+    h1 {
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      font-size: 2.8rem;
+      margin-bottom: 5px;
+      text-shadow: 0 0 10px #ff4d00;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin-bottom: 15px;
+      color: #e0dede;
+      text-align: center;
+    }
+
+    .game-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    canvas {
+      background: #151515;
+      border: 4px solid #ba1200;
+      border-radius: 6px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+    }
+
+    .hud {
+      flex: 1 1 300px;
+      max-width: 360px;
+      background: rgba(20, 20, 20, 0.95);
+      border: 2px solid #3a0f0f;
+      border-radius: 10px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .hud h2 {
+      font-size: 1.1rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #f0471c;
+    }
+
+    ul {
+      list-style: none;
+      line-height: 1.6;
+    }
+
+    .stat-box {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      font-size: 1rem;
+    }
+
+    .stat {
+      flex: 1;
+      padding: 12px;
+      background: #241010;
+      border: 1px solid #5c1414;
+      border-radius: 6px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .credits {
+      margin-top: 25px;
+      font-size: 0.9rem;
+      color: #aaa;
+      text-align: center;
+      max-width: 800px;
+      line-height: 1.6;
+    }
+
+    .mini-map {
+      height: 160px;
+      border: 1px solid #555;
+      border-radius: 6px;
+      background: #050505;
+    }
+
+    @media (max-width: 900px) {
+      .hud {
+        order: -1;
+      }
+
+      canvas {
+        width: 100%;
+        height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>DOOM 1993</h1>
+  <p class="subtitle">Jednoduchá raycastingová pocta průkopnické FPS legendě od id Software.</p>
+
+  <div class="game-wrapper">
+    <canvas id="view" width="900" height="540"></canvas>
+    <div class="hud">
+      <h2>Ovládání</h2>
+      <ul>
+        <li>W / S – pohyb vpřed / vzad</li>
+        <li>A / D – krok do stran</li>
+        <li>← / → – otáčení</li>
+        <li>Mezerník – výstřel</li>
+      </ul>
+
+      <h2>Statistiky mariňáka</h2>
+      <div class="stat-box">
+        <div class="stat" id="health">Životy: 100%</div>
+        <div class="stat" id="enemies">Démoni: 3</div>
+      </div>
+
+      <h2>Mini mapa</h2>
+      <canvas id="map" width="160" height="160" class="mini-map"></canvas>
+
+      <div class="credits">
+        <strong>Tip:</strong> Poraz všechny démony a prozkoumej úroveň. Tento malý projekt využívá raycasting, stejně jako originální Doom!
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('view');
+    const ctx = canvas.getContext('2d');
+    const mapCanvas = document.getElementById('map');
+    const mapCtx = mapCanvas.getContext('2d');
+
+    const MAP = [
+      '5555555555555555',
+      '5..1...2....3..5',
+      '5.11.111.22.3315',
+      '5.1....1..2....5',
+      '5.1.33.1.22.1..5',
+      '5...1..1....1..5',
+      '5.1111.1.2221..5',
+      '5.1..1.1.2..1..5',
+      '5.1.11.1.2.11..5',
+      '5.1.1..1.2.1.3.5',
+      '5.1.1.11.2.1.3.5',
+      '5.1.1....2.1...5',
+      '5.1.111222.1.3.5',
+      '5.1........1.3.5',
+      '5...1..2....1..5',
+      '5555555555555555'
+    ];
+
+    const worldWidth = MAP[0].length;
+    const worldHeight = MAP.length;
+
+    const player = {
+      x: 2.5,
+      y: 2.5,
+      dir: 0,
+      fov: Math.PI / 3,
+      speed: 3,
+      rotSpeed: 2.5,
+      health: 100
+    };
+
+    const keys = {};
+
+    const demons = [
+      { x: 8.5, y: 4.5, alive: true },
+      { x: 12.5, y: 9.5, alive: true },
+      { x: 6.5, y: 13.5, alive: true }
+    ];
+
+    let lastTime = 0;
+    let shotCooldown = 0;
+
+    const wallPalette = {
+      '1': [140, 160, 220],
+      '2': [210, 180, 110],
+      '3': [110, 190, 140],
+      '5': [170, 80, 60]
+    };
+
+    const miniMapPalette = {
+      '1': '#445b9d',
+      '2': '#9b8440',
+      '3': '#2f8f5d',
+      '5': '#7b2b1f'
+    };
+
+    function isWall(x, y) {
+      if (x < 0 || y < 0 || x >= worldWidth || y >= worldHeight) return true;
+      return MAP[Math.floor(y)][Math.floor(x)] !== '.';
+    }
+
+    function getTile(x, y) {
+      if (x < 0 || y < 0 || x >= worldWidth || y >= worldHeight) return '5';
+      return MAP[Math.floor(y)][Math.floor(x)];
+    }
+
+    function normalizeAngle(angle) {
+      angle %= Math.PI * 2;
+      if (angle < 0) angle += Math.PI * 2;
+      return angle;
+    }
+
+    function castRay(angle) {
+      const sin = Math.sin(angle);
+      const cos = Math.cos(angle);
+      const stepSize = 0.04;
+      let distance = 0;
+
+      while (distance < 20) {
+        distance += stepSize;
+        const testX = player.x + cos * distance;
+        const testY = player.y + sin * distance;
+        if (isWall(testX, testY)) {
+          return {
+            distance,
+            hitX: testX,
+            hitY: testY,
+            tile: getTile(testX, testY)
+          };
+        }
+      }
+
+      return { distance: 20, hitX: player.x, hitY: player.y, tile: null };
+    }
+
+    function update(delta) {
+      const moveStep = player.speed * delta;
+      const rotStep = player.rotSpeed * delta;
+
+      if (keys['ArrowLeft']) player.dir -= rotStep;
+      if (keys['ArrowRight']) player.dir += rotStep;
+      player.dir = normalizeAngle(player.dir);
+
+      const forwardX = Math.cos(player.dir) * moveStep;
+      const forwardY = Math.sin(player.dir) * moveStep;
+      const rightX = Math.cos(player.dir + Math.PI / 2) * moveStep;
+      const rightY = Math.sin(player.dir + Math.PI / 2) * moveStep;
+
+      let newX = player.x;
+      let newY = player.y;
+
+      if (keys['KeyW']) {
+        if (!isWall(player.x + forwardX, player.y)) newX += forwardX;
+        if (!isWall(player.x, player.y + forwardY)) newY += forwardY;
+      }
+
+      if (keys['KeyS']) {
+        if (!isWall(player.x - forwardX, player.y)) newX -= forwardX;
+        if (!isWall(player.x, player.y - forwardY)) newY -= forwardY;
+      }
+
+      if (keys['KeyA']) {
+        if (!isWall(player.x - rightX, player.y)) newX -= rightX;
+        if (!isWall(player.x, player.y - rightY)) newY -= rightY;
+      }
+
+      if (keys['KeyD']) {
+        if (!isWall(player.x + rightX, player.y)) newX += rightX;
+        if (!isWall(player.x, player.y + rightY)) newY += rightY;
+      }
+
+      player.x = newX;
+      player.y = newY;
+
+      demons.forEach((demon) => {
+        if (!demon.alive) return;
+        const dx = demon.x - player.x;
+        const dy = demon.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 0.5) {
+          player.health = Math.max(0, player.health - 20 * delta);
+        }
+      });
+
+      if (shotCooldown > 0) shotCooldown -= delta;
+
+      document.getElementById('health').textContent = `Životy: ${Math.max(0, player.health).toFixed(0)}%`;
+      document.getElementById('enemies').textContent = `Démoni: ${demons.filter((d) => d.alive).length}`;
+    }
+
+    function renderScene() {
+      const horizon = canvas.height / 2;
+      const ceilingGradient = ctx.createLinearGradient(0, 0, 0, horizon);
+      ceilingGradient.addColorStop(0, '#1c1f2c');
+      ceilingGradient.addColorStop(1, '#07080b');
+      ctx.fillStyle = ceilingGradient;
+      ctx.fillRect(0, 0, canvas.width, horizon);
+
+      const floorGradient = ctx.createLinearGradient(0, horizon, 0, canvas.height);
+      floorGradient.addColorStop(0, '#2b1c13');
+      floorGradient.addColorStop(1, '#070504');
+      ctx.fillStyle = floorGradient;
+      ctx.fillRect(0, horizon, canvas.width, horizon);
+
+      const numRays = canvas.width;
+
+      for (let column = 0; column < numRays; column++) {
+        const rayScreenPos = (column / numRays) - 0.5;
+        const rayAngle = normalizeAngle(player.dir + rayScreenPos * player.fov);
+        const { distance, hitX, hitY, tile } = castRay(rayAngle);
+        if (!tile) continue;
+
+        const correctedDist = distance * Math.cos(rayAngle - player.dir);
+        const wallHeight = Math.min(canvas.height, (canvas.height / correctedDist) * 1.2);
+        const depthShade = Math.max(0.2, 1 - distance / 15);
+        const offsetX = Math.abs(hitX - Math.floor(hitX) - 0.5);
+        const offsetY = Math.abs(hitY - Math.floor(hitY) - 0.5);
+        const sideShade = offsetX > offsetY ? 0.75 : 0.95;
+        const palette = wallPalette[tile] || [190, 90, 70];
+        const r = Math.floor(palette[0] * depthShade * sideShade);
+        const g = Math.floor(palette[1] * depthShade * sideShade);
+        const b = Math.floor(palette[2] * depthShade * sideShade);
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(column, (canvas.height - wallHeight) / 2, 1, wallHeight);
+      }
+
+      const sprites = demons
+        .filter((d) => d.alive)
+        .map((demon) => {
+          const dx = demon.x - player.x;
+          const dy = demon.y - player.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const angle = normalizeAngle(Math.atan2(dy, dx) - player.dir);
+          let relativeAngle = angle;
+          if (relativeAngle > Math.PI) relativeAngle -= Math.PI * 2;
+
+          return { demon, distance, relativeAngle };
+        })
+        .filter((s) => Math.abs(s.relativeAngle) < player.fov / 2)
+        .sort((a, b) => b.distance - a.distance);
+
+      sprites.forEach((sprite) => {
+        const screenX = (0.5 + sprite.relativeAngle / player.fov) * canvas.width;
+        const size = Math.min(canvas.height, (canvas.height / sprite.distance) * 0.9);
+        const x = screenX - size / 2;
+        const y = (canvas.height - size) / 2;
+        const shade = Math.max(0.2, 1 - sprite.distance / 12);
+
+        ctx.fillStyle = `rgba(255, 60, 0, ${shade})`;
+        ctx.fillRect(x, y, size, size);
+        ctx.strokeStyle = 'rgba(255, 200, 150, 0.6)';
+        ctx.strokeRect(x, y, size, size);
+      });
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2 - 10, canvas.height / 2);
+      ctx.lineTo(canvas.width / 2 + 10, canvas.height / 2);
+      ctx.moveTo(canvas.width / 2, canvas.height / 2 - 10);
+      ctx.lineTo(canvas.width / 2, canvas.height / 2 + 10);
+      ctx.stroke();
+
+      ctx.fillStyle = '#200';
+      ctx.fillRect(canvas.width / 2 - 180, canvas.height - 120, 360, 120);
+      ctx.fillStyle = '#400';
+      ctx.fillRect(canvas.width / 2 - 160, canvas.height - 110, 320, 110);
+      ctx.fillStyle = '#ff8844';
+      ctx.fillRect(canvas.width / 2 - 40, canvas.height - 80, 80, 80);
+      ctx.fillStyle = '#222';
+      ctx.fillRect(canvas.width / 2 - 10, canvas.height - 80, 20, 60);
+    }
+
+    function renderMap() {
+      const scale = mapCanvas.width / worldWidth;
+      mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+      for (let y = 0; y < worldHeight; y++) {
+        for (let x = 0; x < worldWidth; x++) {
+          const tile = MAP[y][x];
+          if (tile === '.') {
+            mapCtx.fillStyle = '#101010';
+          } else {
+            mapCtx.fillStyle = miniMapPalette[tile] || '#552';
+          }
+          mapCtx.fillRect(x * scale, y * scale, scale, scale);
+        }
+      }
+
+      mapCtx.fillStyle = '#3cff00';
+      mapCtx.beginPath();
+      mapCtx.arc(player.x * scale, player.y * scale, 4, 0, Math.PI * 2);
+      mapCtx.fill();
+
+      mapCtx.strokeStyle = '#3cff00';
+      mapCtx.beginPath();
+      mapCtx.moveTo(player.x * scale, player.y * scale);
+      mapCtx.lineTo((player.x + Math.cos(player.dir) * 0.8) * scale, (player.y + Math.sin(player.dir) * 0.8) * scale);
+      mapCtx.stroke();
+
+      demons.forEach((demon) => {
+        if (!demon.alive) return;
+        mapCtx.fillStyle = '#ff3b3b';
+        mapCtx.fillRect(demon.x * scale - 3, demon.y * scale - 3, 6, 6);
+      });
+    }
+
+    function tryShoot() {
+      if (shotCooldown > 0) return;
+      shotCooldown = 0.4;
+
+      const aliveDemons = demons.filter((d) => d.alive);
+      aliveDemons.sort((a, b) => {
+        const distA = (a.x - player.x) ** 2 + (a.y - player.y) ** 2;
+        const distB = (b.x - player.x) ** 2 + (b.y - player.y) ** 2;
+        return distA - distB;
+      });
+
+      for (const demon of aliveDemons) {
+        const dx = demon.x - player.x;
+        const dy = demon.y - player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const angle = normalizeAngle(Math.atan2(dy, dx) - player.dir);
+        let rel = angle;
+        if (rel > Math.PI) rel -= Math.PI * 2;
+        if (Math.abs(rel) < player.fov / 6 && distance < 10) {
+          demon.alive = false;
+          break;
+        }
+      }
+    }
+
+    function gameLoop(timestamp) {
+      const delta = Math.min(0.1, (timestamp - lastTime) / 1000);
+      lastTime = timestamp;
+      update(delta);
+      renderScene();
+      renderMap();
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) {
+        e.preventDefault();
+      }
+      keys[e.code] = true;
+      if (e.code === 'Space') {
+        tryShoot();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    requestAnimationFrame((time) => {
+      lastTime = time;
+      requestAnimationFrame(gameLoop);
+    });
+  </script>
+</body>
+</html>

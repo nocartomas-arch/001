@@ -276,12 +276,13 @@ footer {
 <div class="container">
   <header>
     <h1>🎮 Herní portál 🎮</h1>
+    <p class="subtitle"><span id="gameCount">38</span> nejlepších her všech dob!</p>
     <p class="subtitle">Online verze nejlepších her všech dob!</p>
   </header>
 
   <div class="stats">
     <div class="stat-item">
-      <span class="stat-number" id="totalGames">29</span>
+      <span class="stat-number" id="totalGames">38</span>
       <span class="stat-label">Celkem her</span>
     </div>
     <div class="stat-item">
@@ -391,11 +392,21 @@ function renderGames(gamesToRender = games) {
     gamesGrid.appendChild(card);
   });
 
-  document.getElementById('totalGames').textContent = gamesToRender.length;
+  const totalElement = document.getElementById('totalGames');
+  if (totalElement) {
+    const isFullRender = gamesToRender.length === games.length;
+    totalElement.textContent = isFullRender ? TOTAL_GAMES : gamesToRender.length;
+  }
 }
 
 function playGame(filename) {
   window.location.href = filename;
+}
+
+const TOTAL_GAMES = games.length + 1;
+const gameCountElement = document.getElementById('gameCount');
+if (gameCountElement) {
+  gameCountElement.textContent = TOTAL_GAMES;
 }
 
 const searchInput = document.getElementById('searchInput');
