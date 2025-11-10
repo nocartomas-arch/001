@@ -1,0 +1,108 @@
+<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Frogger Retro</title>
+<style>
+  body{margin:0;background:#012;color:#fff;font-family:Segoe UI,Arial}
+  #c{display:block;margin:20px auto;border:4px solid #0af;box-shadow:0 0 30px #0008}
+  .hud{display:flex;gap:16px;justify-content:center}
+</style></head><body>
+<canvas id="c" width="900" height="600"></canvas>
+<div class="hud">Životy: <b id="lives">3</b> | Level: <b id="lvl">1</b> | Skóre: <b id="score">0</b></div>
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+let frog,lives=3,level=1,score=0,keys={};
+const lanes=[];
+function resetFrog(){frog={x:cv.width/2,y:cv.height-40,w:26,h:26,spd:6};}
+function buildLevel(){
+  lanes.length=0;
+  // silnice (spodních 4 pruhy)
+  for(let i=0;i<4;i++){
+    lanes.push({y:cv.height-120 - i*50,type:'road',cars:spawn(6+i, 3+level*0.6, 60)});
+  }
+  // řeka (horních 4 pruhy)
+  for(let i=0;i<4;i++){
+    lanes.push({y:100 + i*50,type:'river',logs:spawn(5+i, 2+level*0.5, 110)});
+  }
+}
+function spawn(count,speed,w){
+  const a=[]; for(let i=0;i<count;i++){
+    a.push({x:(i* (cv.width/count)), w:w, spd:(Math.random()<.5?-1:1)*speed});
+  } return a;
+}
+resetFrog(); buildLevel();
+
+function drawBG(){
+  ctx.fillStyle='#0a3'; ctx.fillRect(0,0,cv.width,100); // cíl
+  ctx.fillStyle='#123'; ctx.fillRect(0,100,cv.width,200); // řeka
+  ctx.fillStyle='#333'; ctx.fillRect(0,300,cv.width,220); // silnice
+  ctx.fillStyle='#0a3'; ctx.fillRect(0,520,cv.width,80); // start
+}
+function drawLanes(){
+  lanes.forEach(L=>{
+    if(L.type==='road'){
+      ctx.fillStyle='#999';
+      L.cars.forEach(c=>{ctx.fillStyle='#d33'; ctx.fillRect(c.x,L.y, c.w, 30);
+                         ctx.fillStyle='#fff'; ctx.fillRect(c.x+8, L.y+6, c.w-16,6);});
+    }else{
+      ctx.fillStyle='#6b4';
+      L.logs.forEach(l=>{ctx.fillStyle='#a73'; ctx.fillRect(l.x,L.y, l.w, 28);
+                         ctx.fillStyle='#c96'; ctx.fillRect(l.x+8,L.y+6,l.w-16,6);});
+    }
+  });
+}
+function moveLanes(){
+  lanes.forEach(L=>{
+    if(L.type==='road'){
+      L.cars.forEach(c=>{c.x+=c.spd; if(c.x>cv.width+40)c.x=-c.w; if(c.x<-40)c.x=cv.width;});
+    }else{
+      L.logs.forEach(l=>{l.x+=l.spd; if(l.x>cv.width+80)l.x=-l.w; if(l.x<-80)l.x=cv.width;});
+    }
+  });
+}
+function drawFrog(){
+  ctx.fillStyle='#3f6'; ctx.fillRect(frog.x-13,frog.y-13,26,26);
+  ctx.fillStyle='#0f0'; ctx.fillRect(frog.x-10,frog.y-6,20,12);
+}
+function control(){
+  if(keys['ArrowLeft']) frog.x-=frog.spd;
+  if(keys['ArrowRight']) frog.x+=frog.spd;
+  if(keys['ArrowUp']) frog.y-=frog.spd;
+  if(keys['ArrowDown']) frog.y+=frog.spd;
+  frog.x=Math.max(13,Math.min(cv.width-13,frog.x));
+  frog.y=Math.max(13,Math.min(cv.height-13,frog.y));
+}
+function collide(){
+  // cíl
+  if(frog.y<100){ score+=200; level++; document.getElementById('score').textContent=score;
+    document.getElementById('lvl').textContent=level; resetFrog(); buildLevel(); return; }
+
+  // zóna řeky
+  if(frog.y>=100 && frog.y<300){
+    const lane=lanes.find(L=>L.type==='river' && Math.abs(L.y - frog.y)<20);
+    let onLog=false;
+    if(lane){
+      for(const l of lane.logs){
+        if(frog.x>l.x && frog.x<l.x+l.w){ onLog=true; frog.x+=l.spd; }
+      }
+    }
+    if(!onLog){ loseLife(); }
+  }
+  // zóna silnice
+  if(frog.y>=300 && frog.y<520){
+    const lane=lanes.find(L=>L.type==='road' && Math.abs(L.y - frog.y)<20);
+    if(lane){
+      for(const c of lane.cars){
+        if(frog.x>c.x && frog.x<c.x+c.w){ loseLife(); }
+      }
+    }
+  }
+}
+function loseLife(){
+  lives--; document.getElementById('lives').textContent=lives;
+  if(lives<=0){ alert('Konec hry!'); lives=3; level=1; score=0; buildLevel(); document.getElementById('lvl').textContent=1; document.getElementById('score').textContent=0; }
+  resetFrog();
+}
+function loop(){ ctx.clearRect(0,0,cv.width,cv.height); drawBG(); drawLanes(); drawFrog(); control(); collide(); moveLanes(); requestAnimationFrame(loop); }
+addEventListener('keydown',e=>keys[e.key]=true);
+addEventListener('keyup',e=>keys[e.key]=false);
+loop();
+</script></body></html>
