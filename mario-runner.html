@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Super Mario-style Runner</title>
+<style>
+  body{margin:0;background:#87CEEB;font-family:Segoe UI}
+  #ui{position:fixed;top:8px;left:8px;color:#222;font-weight:800;text-shadow:0 2px 0 #fff}
+  canvas{display:block;margin:0 auto;background:linear-gradient(#87CEEB,#bfe9ff 60%,#6ab04c 60%,#6ab04c)}
+  .chip{background:#fff8;border:2px solid #0003;border-radius:8px;padding:6px 10px;display:inline-block;margin-right:8px}
+</style>
+</head>
+<body>
+<div id="ui">
+  <span class="chip">🏆 <span id="score">0</span></span>
+  <span class="chip">❤️ <span id="lives">3</span></span>
+  <span class="chip">LV <span id="lv">1</span></span>
+  <span class="chip">🎵 <button id="snd">🔊</button></span>
+  <div>← → běh • ␣ skok • Shift sprint</div>
+</div>
+<canvas id="c" width="980" height="540"></canvas>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+let sndOn=true; document.getElementById('snd').onclick=()=>{sndOn=!sndOn; document.getElementById('snd').textContent=sndOn?'🔊':'🔈'};
+const S={w:c.width,h:c.height,g:0.8};
+const keys={}; addEventListener('keydown',e=>keys[e.key]=true); addEventListener('keyup',e=>keys[e.key]=false);
+
+const sfx={coin:new Audio(), stomp:new Audio(), jump:new Audio()}; Object.values(sfx).forEach(a=>a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAAA==');
+
+let score=0,lives=3,level=1,speed=3,scroll=0,over=false;
+
+const p={x:120,y:400,vx:0,vy:0,w:30,h:38,on:false,star:0};
+function plat(y,w=200){return {x:S.w+rnd(0,300),y, w, h:12}}
+function goomba(){return {x:S.w+rnd(250,600),y:0,w:28,h:22,vy:0,alive:true}}
+function coin(){return {x:S.w+rnd(200,500),y:rnd(120,360),r:10,b:0,t:0}}
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+
+let plats=[{x:0,y:460,w:S.w,h:26}, plat(360,160), plat(300,120), plat(240,160)];
+let enemies=[goomba()], coins=[coin(),coin()];
+
+function reset(){ score=0;lives=3;level=1;speed=3;scroll=0;over=false; plats=[{x:0,y:460,w:S.w,h:26}]; enemies=[goomba()]; coins=[coin(),coin()]; p.x=120;p.y=400;p.vx=p.vy=0;p.star=0; loop(); }
+
+function phys(){
+  const run=(keys['Shift']?1.5:1);
+  p.vx=(keys['ArrowRight']||keys['d']?2.6:0)-(keys['ArrowLeft']||keys['a']?2.6:0);
+  p.vx*=run;
+  if((keys[' ']||keys['ArrowUp']||keys['w']) && p.on){ p.vy=-12; if(sndOn){sfx.jump.currentTime=0;sfx.jump.play().catch(()=>{});} }
+  p.vy+=S.g; p.y+=p.vy;
+
+  p.on=false;
+  plats.forEach(pl=>{
+    // world scroll
+    pl.x-=speed;
+    if(pl.x+pl.w<0){ pl.x=S.w+rnd(80,200); pl.y=rnd(220,460); pl.w=rnd(100,240); }
+    // land
+    if(p.x<p.x+p.w && p.x+30>pl.x && p.y+p.h>pl.y && p.y+p.h<pl.y+24 && p.vy>0){ p.y=pl.y-p.h; p.vy=0; p.on=true; }
+  });
+
+  if(p.y>580){ loseLife(); }
+
+  enemies.forEach(g=>{
+    g.vy+=S.g; g.y+=g.vy; g.x-=speed;
+    // ground collide
+    plats.forEach(pl=>{
+      if(g.x+g.w>pl.x && g.x<pl.x+pl.w && g.y+g.h>pl.y && g.y+g.h<pl.y+24 && g.vy>0){ g.y=pl.y-g.h; g.vy=0; }
+    });
+    // stomp / hit
+    if(g.alive && p.x<p.x+30 && p.x+30>g.x && p.y+38>g.y && p.y<g.y+g.h){
+      if(p.vy>0 || p.star>0){ g.alive=false; score+=50; p.vy=-8; if(sndOn){sfx.stomp.currentTime=0;sfx.stomp.play().catch(()=>{});} }
+      else if(p.star<=0){ loseLife(); }
+    }
+    if(g.x<-40) { g.x=S.w+rnd(400,900); g.y=0; g.vy=0; g.alive=true; }
+  });
+
+  coins.forEach(co=>{
+    co.x-=speed;
+    co.b+=.15; // bob
+    if(dist(p.x+15,p.y+19,co.x,co.y+Math.sin(co.b)*6)<26){
+      score+=10; co.x=S.w+rnd(200,600); co.y=rnd(120,360);
+      if(sndOn){sfx.coin.currentTime=0;sfx.coin.play().catch(()=>{});}
+      if(score && score%200===0){ level++; speed+=.5; }
+    }
+    if(co.x<-20){ co.x=S.w+rnd(200,600); co.y=rnd(120,360); }
+  });
+
+  if(p.star>0) p.star--;
+  document.getElementById('score').textContent=score;
+  document.getElementById('lives').textContent=lives;
+  document.getElementById('lv').textContent=level;
+}
+function loseLife(){
+  if(over) return;
+  lives--; p.x=120;p.y=200;p.vx=0;p.vy=0;p.star=60;
+  if(lives<0){ over=true; }
+}
+function dist(ax,ay,bx,by){const dx=ax-bx,dy=ay-by;return Math.hypot(dx,dy)}
+
+function draw(){
+  // sky
+  x.fillStyle='#87CEEB'; x.fillRect(0,0,S.w,S.h);
+  // clouds
+  x.fillStyle='rgba(255,255,255,.8)';
+  for(let i=0;i<3;i++){ const cx=(scroll*0.2 + i*280)% (S.w+300) -150; x.beginPath(); x.arc(cx,110+i*24,30,0,6.28); x.arc(cx+24,110+i*24,36,0,6.28); x.arc(cx+52,110+i*24,28,0,6.28); x.fill(); }
+  // ground line
+  x.fillStyle='#6ab04c'; x.fillRect(0,460,S.w,80);
+  // platforms
+  plats.forEach(pl=>{ x.fillStyle='#825a2c'; x.fillRect(pl.x,pl.y,pl.w,pl.h); x.fillStyle='#a77b3e'; x.fillRect(pl.x,pl.y,pl.w,6) });
+  // coins
+  coins.forEach(co=>{ const cy=co.y+Math.sin(co.b)*6; x.fillStyle='#ffd54f'; x.beginPath(); x.arc(co.x,cy,co.r,0,6.28); x.fill(); x.strokeStyle='#ffb300'; x.stroke(); });
+  // enemies
+  enemies.forEach(g=>{ if(!g.alive) return; x.fillStyle='#8d6e63'; x.fillRect(g.x,g.y,g.w,g.h); x.fillStyle='#000'; x.fillRect(g.x+6,g.y+6,6,6); x.fillRect(g.x+g.w-12,g.y+6,6,6) });
+
+  // player
+  x.save();
+  x.translate(p.x,p.y);
+  x.fillStyle=p.star>0?'#fff176':'#e53935';
+  x.fillRect(0,0,30,38);
+  x.fillStyle='#000'; x.fillRect(6,8,6,6); x.fillRect(18,8,6,6);
+  x.restore();
+}
+function loop(){ if(over){ x.fillStyle='rgba(0,0,0,.6)'; x.fillRect(0,0,S.w,S.h); x.fillStyle='#fff'; x.font='bold 32px Segoe UI'; x.fillText('Konec hry – Enter pro restart', 240, 260); return; } phys(); draw(); scroll+=speed; requestAnimationFrame(loop); }
+addEventListener('keydown',e=>{ if(over && e.key==='Enter'){ reset(); }});
+reset();
+</script>
+</body>
+</html>
