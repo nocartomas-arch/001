@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zelda Quest (demake)</title>
+<style>
+  body{margin:0;background:#00151a;color:#eaffff;font-family:Segoe UI}
+  #ui{position:fixed;top:8px;left:8px;display:flex;gap:10px;align-items:center}
+  .chip{background:#00353d;border:1px solid #035a66;border-radius:10px;padding:6px 10px}
+  canvas{display:block;margin:0 auto;background:#0a2a2f;box-shadow:0 0 30px #00f5ffa0}
+</style>
+</head>
+<body>
+<div id="ui">
+  <span class="chip">❤️ <span id="hp">5</span></span>
+  <span class="chip">🔑 <span id="keys">0</span></span>
+  <span class="chip">🎵 <button id="snd">🔊</button></span>
+  <span class="chip">WASD pohyb • J útok</span>
+</div>
+<canvas id="c" width="896" height="560"></canvas>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+let sndOn=true; document.getElementById('snd').onclick=()=>{sndOn=!sndOn;document.getElementById('snd').textContent=sndOn?'🔊':'🔈'};
+const T=32, Cw=c.width/T, Ch=c.height/T; // tile grid
+const keys={}; addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true); addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+
+const sfx={hit:new Audio(), key:new Audio(), door:new Audio()}; Object.values(sfx).forEach(a=>a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAAA==');
+
+const maps=[
+  // 0: start
+  {tiles:gen(28,17,(x,y)=> y===16||y===0||x===0||x===27?1: (Math.random()<.05?2:0)), entities:[]},
+  // 1: door room
+  {tiles:gen(28,17,(x,y)=> y===16||y===0||x===0||x===27?1:0), entities:[{t:'door',x:13,y:8,open:false}]},
+];
+function gen(w,h,f){const a=[];for(let y=0;y<h;y++){a[y]=[];for(let x=0;x<w;x++)a[y][x]=f(x,y)}return a}
+
+const player={x:3,y:3,hp:5,keys:0,dir:1,atk:0,spd:.12, map:0};
+let mobs=[enemy(18,6),enemy(22,10)];
+function enemy(x,y){return {x,y,hp:2,pat:0, dir:1}}
+
+function tile(m,tx,ty){ if(ty<0||tx<0||ty>=maps[m].tiles.length||tx>=maps[m].tiles[0].length) return 1; return maps[m].tiles[ty][tx]; }
+function pass(m,tx,ty){ const t=tile(m,tx,ty); return t===0; }
+
+function update(dt){
+  // move
+  let mx=(keys['d']?1:0)-(keys['a']?1:0);
+  let my=(keys['s']?1:0)-(keys['w']?1:0);
+  const sp=player.spd*dt;
+  if(Math.abs(mx)+Math.abs(my)>1){mx*=.707;my*=.707}
+  if(Math.abs(mx)>0){player.dir=mx>0?1:3}
+  if(Math.abs(my)>0){player.dir=my>0?2:0}
+  tryMove(player, mx*sp, my*sp);
+
+  // attack
+  if(keys['j'] && player.atk<=0){ player.atk=140; if(sndOn){sfx.hit.currentTime=0;sfx.hit.play().catch(()=>{});} }
+  if(player.atk>0){ player.atk-=dt; mobs.forEach(m=>{
+      if(dist(player.x,player.y,m.x,m.y)<1.1){ m.hp--; if(m.hp<=0) m.dead=true; }
+  })}
+
+  mobs=mobs.filter(m=>!m.dead);
+  mobs.forEach(m=>{
+    m.pat+=dt*.001;
+    const targx=player.x, targy=player.y;
+    const dx=targx-m.x, dy=targy-m.y;
+    const d=Math.hypot(dx,dy);
+    const sp=.06*(dt);
+    if(d<6){ tryMove(m, (dx/d)*sp, (dy/d)*sp); } // chase
+    else { // patrol wobble
+      tryMove(m, Math.sin(m.pat)*sp*.5, Math.cos(m.pat)*sp*.5);
+    }
+    if(d<0.8){ // hurt player
+      player.hp=Math.max(0, player.hp-0.01*dt/16);
+      if(player.hp<=0) player.hp=5, player.keys=0, player.x=3,player.y=3, player.map=0;
+    }
+  });
+
+  // key spawns
+  if(Math.random()<.002){ // occasional key
+    const tx=Math.floor(Math.random()*26)+1, ty=Math.floor(Math.random()*15)+1;
+    if(pass(player.map,tx,ty)) maps[player.map].entities.push({t:'key',x:tx,y:ty});
+  }
+
+  // pick keys / doors
+  maps[player.map].entities = maps[player.map].entities.filter(e=>{
+    if(e.t==='key' && Math.hypot(e.x-player.x,e.y-player.y)<.6){
+      player.keys++; if(sndOn){sfx.key.currentTime=0;sfx.key.play().catch(()=>{});} return false;
+    }
+    return true;
+  });
+  const door = maps[1].entities.find(e=>e.t==='door');
+  if(player.map===1 && door && !door.open && player.keys>0 && Math.hypot(door.x-player.x,door.y-player.y)<1){
+    door.open=true; player.keys--; if(sndOn){sfx.door.currentTime=0;sfx.door.play().catch(()=>{});}
+  }
+  // simple transition spot
+  if(player.map===0 && player.x>25 && player.y>8 && player.y<9.5){ player.map=1; player.x=2; player.y=8; }
+  if(player.map===1 && player.x<1.2 && player.y>8 && player.y<9.5){ player.map=0; player.x=24; player.y=8; }
+  document.getElementById('hp').textContent=Math.ceil(player.hp);
+  document.getElementById('keys').textContent=player.keys;
+}
+function tryMove(ent,dx,dy){
+  const nx=ent.x+dx, ny=ent.y+dy;
+  if(pass(player.map, nx|0, ent.y|0)) ent.x=nx;
+  if(pass(player.map, ent.x|0, ny|0)) ent.y=ny;
+}
+function dist(ax,ay,bx,by){return Math.hypot(ax-bx,ay-by)}
+function draw(){
+  // map
+  const m=maps[player.map];
+  for(let y=0;y<m.tiles.length;y++){
+    for(let x0=0;x0<m.tiles[0].length;x0++){
+      const t=m.tiles[y][x0];
+      if(t===1){ x.fillStyle='#10343a'; x.fillRect(x0*T,y*T,T,T); x.fillStyle='#0f5963'; x.fillRect(x0*T+4,y*T+4,T-8,T-8); }
+      else if(t===2){ x.fillStyle='#0e3a2a'; x.fillRect(x0*T,y*T,T,T); x.fillStyle='#0d6b48'; x.fillRect(x0*T+6,y*T+6,T-12,T-12); }
+      else { x.fillStyle='#083339'; x.fillRect(x0*T,y*T,T,T); x.fillStyle='#0a4750'; x.fillRect(x0*T+8,y*T+8,T-16,T-16); }
+    }
+  }
+  // entities
+  m.entities.forEach(e=>{
+    if(e.t==='key'){ x.fillStyle='#ffd54f'; x.fillRect(e.x*T+10,e.y*T+12,12,8); x.fillStyle='#ffb300'; x.fillRect(e.x*T+20,e.y*T+10,6,6); }
+    if(e.t==='door'){ x.fillStyle=e.open?'#5d4037aa':'#5d4037'; x.fillRect(e.x*T,e.y*T,T,T*2); }
+  });
+  // mobs
+  mobs.forEach(en=>{ x.fillStyle='#c62828'; x.fillRect(en.x*T+6,en.y*T+6,20,20); x.fillStyle='#000'; x.fillRect(en.x*T+10,en.y*T+10,4,4); x.fillRect(en.x*T+18,en.y*T+10,4,4) });
+  // player
+  x.fillStyle='#1de9b6'; x.fillRect(player.x*T+6,player.y*T+6,20,20);
+  if(player.atk>0){ // sword swing arc
+    x.strokeStyle='#e0f7fa'; x.lineWidth=3; x.beginPath();
+    const cx=player.x*T+16, cy=player.y*T+16;
+    x.arc(cx,cy,24, player.dir===1? -0.2: player.dir===3? Math.PI-0.2 : player.dir===2? Math.PI/2-0.2 : -Math.PI/2-0.2, 
+                     player.dir===1? 0.9:  player.dir===3? Math.PI+0.9: player.dir===2? Math.PI/2+0.9 : -Math.PI/2+0.9);
+    x.stroke();
+  }
+}
+let last=0; function loop(ts){const dt=ts-last;last=ts; update(dt); draw(); requestAnimationFrame(loop)} requestAnimationFrame(loop);
+</script>
+</body>
+</html>
