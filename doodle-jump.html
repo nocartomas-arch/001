@@ -1,1 +1,230 @@
-
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doodle Jump</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        #gameContainer { text-align: center; }
+        h1 { color: #7CFC00; font-size: 3em; margin-bottom: 10px; text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3); }
+        #score {
+            font-size: 48px;
+            color: #7CFC00;
+            margin: 20px 0;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        #gameCanvas {
+            border: 5px solid #7CFC00;
+            background: #E0F6FF;
+            display: block;
+            margin: 20px auto;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #7CFC00;
+            color: #fff;
+            border: none;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        button:hover { background: #00FF00; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🦘 DOODLE JUMP 🦘</h1>
+        <div id="score">0</div>
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div style="color: #7CFC00; margin: 15px;">⬅️ ➡️ ŠIPKY = pohyb | Skákej co nejvýše!</div>
+        <button onclick="restart()">🔄 RESTART</button>
+        <button onclick="window.location.href='index.html'">🏠 MENU</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let score = 0, gameRunning = true;
+        const player = {x: canvas.width / 2 - 25, y: canvas.height - 150, width: 50, height: 50, dy: 0, dx: 0, gravity: 0.5, jumpPower: -15};
+        let platforms = [], cameraY = 0;
+        
+        function createPlatform(y) {
+            const types = ['normal', 'moving', 'break'];
+            const type = Math.random() < 0.7 ? 'normal' : types[Math.floor(Math.random() * types.length)];
+            return {
+                x: Math.random() * (canvas.width - 80),
+                y: y,
+                width: 80,
+                height: 15,
+                type: type,
+                direction: 1,
+                broken: false
+            };
+        }
+        
+        function initPlatforms() {
+            platforms = [];
+            for (let i = 0; i < 10; i++) {
+                platforms.push(createPlatform(canvas.height - i * 80));
+            }
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#E0F6FF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Clouds
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            for (let i = 0; i < 5; i++) {
+                const y = (i * 150 + cameraY * 0.3) % canvas.height;
+                ctx.beginPath();
+                ctx.arc(100 + i * 80, y, 30, 0, Math.PI * 2);
+                ctx.arc(130 + i * 80, y, 40, 0, Math.PI * 2);
+                ctx.arc(160 + i * 80, y, 30, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Platforms
+            platforms.forEach(p => {
+                const screenY = p.y - cameraY;
+                if (screenY > -50 && screenY < canvas.height + 50) {
+                    if (p.type === 'break' && p.broken) {
+                        ctx.fillStyle = '#8B4513';
+                        ctx.globalAlpha = 0.5;
+                    } else if (p.type === 'moving') {
+                        ctx.fillStyle = '#FF6347';
+                    } else {
+                        ctx.fillStyle = '#7CFC00';
+                    }
+                    ctx.fillRect(p.x, screenY, p.width, p.height);
+                    ctx.globalAlpha = 1;
+                    ctx.strokeStyle = '#228B22';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(p.x, screenY, p.width, p.height);
+                }
+            });
+            
+            // Player
+            const screenY = player.y - cameraY;
+            ctx.fillStyle = '#FF1493';
+            ctx.fillRect(player.x, screenY, player.width, player.height);
+            
+            // Eyes
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(player.x + 15, screenY + 15, 8, 0, Math.PI * 2);
+            ctx.arc(player.x + 35, screenY + 15, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(player.x + 15, screenY + 15, 4, 0, Math.PI * 2);
+            ctx.arc(player.x + 35, screenY + 15, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            player.dy += player.gravity;
+            player.y += player.dy;
+            player.x += player.dx;
+            
+            // Walls
+            if (player.x < 0) player.x = canvas.width;
+            if (player.x > canvas.width) player.x = 0;
+            
+            // Camera
+            if (player.y < canvas.height / 2) {
+                cameraY = player.y - canvas.height / 2;
+            }
+            
+            // Platforms
+            platforms.forEach(p => {
+                if (p.type === 'moving') {
+                    p.x += p.direction * 2;
+                    if (p.x < 0 || p.x > canvas.width - p.width) p.direction *= -1;
+                }
+                
+                if (player.dy > 0 && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20 &&
+                    player.x + player.width > p.x && player.x < p.x + p.width) {
+                    if (p.type === 'break' && !p.broken) {
+                        p.broken = true;
+                        setTimeout(() => platforms = platforms.filter(pl => pl !== p), 200);
+                    } else if (!p.broken) {
+                        player.dy = player.jumpPower;
+                    }
+                }
+            });
+            
+            // Generate new platforms
+            if (cameraY < platforms[platforms.length - 1].y - canvas.height) {
+                platforms.push(createPlatform(platforms[platforms.length - 1].y - 80));
+            }
+            
+            // Remove old platforms
+            platforms = platforms.filter(p => p.y - cameraY < canvas.height + 100);
+            
+            // Score
+            const newScore = Math.max(score, Math.floor(-cameraY / 10));
+            if (newScore > score) {
+                score = newScore;
+                document.getElementById('score').textContent = score;
+            }
+            
+            // Game over
+            if (player.y - cameraY > canvas.height) {
+                gameRunning = false;
+                alert('Game Over! Skóre: ' + score);
+                restart();
+            }
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        function restart() {
+            score = 0;
+            cameraY = 0;
+            player.x = canvas.width / 2 - 25;
+            player.y = canvas.height - 150;
+            player.dy = 0;
+            player.dx = 0;
+            gameRunning = true;
+            document.getElementById('score').textContent = '0';
+            initPlatforms();
+            gameLoop();
+        }
+        
+        const keys = {};
+        document.addEventListener('keydown', (e) => { keys[e.key] = true; });
+        document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+        
+        setInterval(() => {
+            if (keys['ArrowLeft']) player.dx = -5;
+            else if (keys['ArrowRight']) player.dx = 5;
+            else player.dx = 0;
+        }, 16);
+        
+        initPlatforms();
+        gameLoop();
+    </script>
+</body>
+</html>
