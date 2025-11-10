@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Lunar Lander</title>
+<style>
+  body{margin:0;background:#000;color:#fff;font-family:Segoe UI,Arial}
+  #c{display:block;margin:0 auto;border:3px solid #444;box-shadow:0 0 30px #0008}
+  .hud{position:fixed;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:14px;background:#111a;padding:8px 12px;border-radius:10px}
+  .hud b{color:#0f0}
+  .help{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);opacity:.9}
+</style></head><body>
+<canvas id="c" width="900" height="600"></canvas>
+<div class="hud">Palivo: <b id="fuel">100</b> | Rychlost: <b id="vel">0</b> | Body: <b id="score">0</b></div>
+<div class="help">Šipky: ⬆︎ motor | ⬅︎ ⮕ vektor | ⬇︎ jemné klesání — Přistaň na plošince &lt; 2.5 m/s, sklon &lt; 10°</div>
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+let ship, fuel=100, score=0, keys={};
+const g=0.06, thrust=0.12, side=0.06; // fyzikální konstanty
+let pads;
+
+function reset(){
+  ship={x:cv.width/2,y:80,vx:0,vy:0,a:0};
+  fuel=100;
+  pads=[{x:120,w:120},{x:420,w:160},{x:720,w:110}].map(p=>({...p,y:cv.height-80+Math.random()*20}));
+}
+reset();
+
+function drawStars(){
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#fff'; for(let i=0;i<130;i++){ctx.fillRect((i*67)%cv.width,(i*91)%cv.height,2,2);}
+}
+function drawTerrain(){
+  ctx.fillStyle='#3d2f25'; ctx.fillRect(0,cv.height-60,cv.width,60);
+  ctx.fillStyle='#58d'; pads.forEach(p=>{ctx.fillRect(p.x,p.y-6,p.w,6);});
+}
+function drawShip(){
+  ctx.save(); ctx.translate(ship.x,ship.y); ctx.rotate(ship.a);
+  ctx.fillStyle='#ddd'; ctx.beginPath(); ctx.moveTo(0,-14); ctx.lineTo(12,14); ctx.lineTo(-12,14); ctx.closePath(); ctx.fill();
+  if(keys['ArrowUp'] && fuel>0){ctx.fillStyle='#ffa500'; ctx.beginPath(); ctx.moveTo(0,14); ctx.lineTo(6,26); ctx.lineTo(-6,26); ctx.closePath(); ctx.fill();}
+  ctx.restore();
+}
+function update(){
+  // ovládání
+  if(keys['ArrowLeft']) ship.vx-=side;
+  if(keys['ArrowRight']) ship.vx+=side;
+  if(keys['ArrowDown']) ship.vy+=0.02;
+  if(keys['ArrowUp'] && fuel>0){ ship.vy-=thrust; fuel=Math.max(0,fuel-0.3); }
+
+  // fyzika
+  ship.vy+=g; ship.x+=ship.vx; ship.y+=ship.vy;
+
+  // okraje
+  if(ship.x<0) ship.x=cv.width; if(ship.x>cv.width) ship.x=0;
+  if(ship.y<0) ship.y=0;
+
+  // kolize s terénem
+  if(ship.y>cv.height-60-14){
+    // zkontroluj přistání na plošince
+    const onPad=pads.find(p=>ship.x>p.x && ship.x<p.x+p.w);
+    const safe=Math.abs(ship.vx)<1.2 && Math.abs(ship.vy)<2.5;
+    if(onPad && ship.y>onPad.y-14 && safe){
+      score+=Math.max(0, Math.round(200-40*Math.abs(ship.vy)));
+      alert('Měkké přistání! ✅'); reset();
+    }else{
+      alert('Náraaaz! 💥'); reset();
+    }
+  }
+
+  // HUD
+  document.getElementById('fuel').textContent=fuel.toFixed(0);
+  document.getElementById('vel').textContent=Math.hypot(ship.vx,ship.vy).toFixed(2);
+  document.getElementById('score').textContent=score;
+}
+function loop(){ drawStars(); drawTerrain(); drawShip(); update(); requestAnimationFrame(loop); }
+addEventListener('keydown',e=>keys[e.key]=true);
+addEventListener('keyup',e=>keys[e.key]=false);
+loop();
+</script></body></html>
