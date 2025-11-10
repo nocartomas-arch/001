@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Tetris Elite</title>
+<style>
+  body{margin:0;background:#0b0f1a;color:#e6f2ff;font-family:Segoe UI,system-ui,Arial}
+  .hud{position:fixed;inset:0;display:flex;gap:18px;justify-content:center;align-items:center}
+  .panel{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:16px;backdrop-filter:blur(6px);padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  #wrap{display:grid;grid-template-columns:auto 360px;gap:18px;align-items:start}
+  #board{background:#0d1326;border:3px solid #2a3b8c;border-radius:10px;box-shadow:0 0 30px #2a3b8ca0}
+  h1{margin:0 0 8px;font-weight:800;letter-spacing:.5px}
+  .stat{font-weight:700;margin:.25rem 0}
+  .grid{display:grid;gap:8px}
+  .next,.hold{display:grid;grid-template-columns:repeat(4,24px);grid-auto-rows:24px;gap:2px;background:#101933;border:1px solid #23306b;border-radius:8px;padding:8px}
+  .cell{width:24px;height:24px;border-radius:4px}
+  .ghost{opacity:.25;outline:1px dashed #fff}
+  .btn{cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;padding:10px 16px;border-radius:999px;font-weight:700}
+  .row{display:flex;gap:12px;align-items:center}
+  .kbd{padding:2px 8px;border-radius:6px;background:#1a2344;border:1px solid #2c3d7a;color:#b8c7ff;font-weight:700}
+  .overlay{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.55)}
+  .card{background:#0e1531;border:2px solid #2a3b8c;border-radius:16px;padding:24px;min-width:320px;text-align:center}
+</style>
+</head>
+<body>
+<div class="hud">
+  <div id="wrap" class="panel">
+    <canvas id="board" width="300" height="600"></canvas>
+    <div class="grid">
+      <div>
+        <h1>🧊 TETRIS ELITE</h1>
+        <div class="stat">Skóre: <span id="score">0</span></div>
+        <div class="stat">Level: <span id="level">1</span></div>
+        <div class="stat">Řádky: <span id="lines">0</span></div>
+      </div>
+      <div class="row"><button id="pause" class="btn">⏸️ Pauza</button><button id="restart" class="btn">🔄 Restart</button><button id="snd" class="btn">🔊</button></div>
+      <div class="row" style="margin-top:6px">Hold: <div id="hold" class="hold"></div></div>
+      <div>Next:<div id="next" class="next" style="margin-top:6px"></div></div>
+      <div style="margin-top:6px">
+        <div class="row"><span class="kbd">← →</span> pohyb</div>
+        <div class="row"><span class="kbd">↑ / X</span> otočit CW</div>
+        <div class="row"><span class="kbd">Z</span> otočit CCW</div>
+        <div class="row"><span class="kbd">↓</span> měkký pád</div>
+        <div class="row"><span class="kbd">Space</span> tvrdý pád</div>
+        <div class="row"><span class="kbd">C</span> HOLD</div>
+        <div class="row"><span class="kbd">P</span> pauza</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ov" class="overlay">
+  <div class="card">
+    <h2 style="margin:0 0 8px">💥 Konec hry</h2>
+    <p style="margin:0 0 8px">Skóre: <b id="final">0</b></p>
+    <button id="again" class="btn">Hrát znovu</button>
+  </div>
+</div>
+
+<script>
+/* --- Konstanty a stav --- */
+const W=10,H=20,SZ=30, GRAVITY_START=50; // nižší = rychlejší
+const canvas=document.getElementById('board'), ctx=canvas.getContext('2d');
+const scoreEl=q('#score'), levelEl=q('#level'), linesEl=q('#lines');
+const sndBtn=q('#snd'); let sndOn=true;
+const sfx={ lock:new Audio(), line:new Audio(), hard:new Audio(), move:new Audio(), rot:new Audio() };
+Object.values(sfx).forEach(a=>{a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAAA=='}); // tichý „click“ placeholder
+
+const COLORS={ I:'#00e5ff', O:'#ffd400', T:'#b388ff', S:'#69f0ae', Z:'#ff5252', J:'#40c4ff', L:'#ffab40' };
+const SHAPES={
+  I:[[0,1],[1,1],[2,1],[3,1]],
+  O:[[1,0],[2,0],[1,1],[2,1]],
+  T:[[1,0],[0,1],[1,1],[2,1]],
+  S:[[1,0],[2,0],[0,1],[1,1]],
+  Z:[[0,0],[1,0],[1,1],[2,1]],
+  J:[[0,0],[0,1],[1,1],[2,1]],
+  L:[[2,0],[0,1],[1,1],[2,1]]
+};
+let grid, cur, bag=[], hold=null, usedHold=false, score=0, lines=0, level=1, dropCounter=0, dropSpeed=GRAVITY_START, paused=false, over=false;
+
+/* --- Utils --- */
+function q(s){return document.querySelector(s)}
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+function newGrid(){return Array.from({length:H},()=>Array(W).fill(null))}
+function bag7(){
+  const pieces=['I','O','T','S','Z','J','L'];
+  const b=[]; while(pieces.length){b.push(...pieces.splice(rnd(0,pieces.length-1),1))}
+  return b;
+}
+function spawn(){
+  if(bag.length<1) bag=bag7();
+  const type=bag.shift(); const mat=SHAPES[type].map(p=>p.slice());
+  cur={type, x:3, y:0, r:0, mat, color:COLORS[type]};
+  usedHold=false;
+  if(collide(0,0,cur.mat)) { gameOver(); }
+}
+function rotateCW(mat){ return mat.map(([x,y])=>[y, -x+Math.max(...mat.map(m=>m[0]))]) }
+function rotateCCW(mat){ return mat.map(([x,y])=>[-y+Math.max(...mat.map(m=>m[1])), x]) }
+function collide(dx,dy,mat){
+  return mat.some(([x,y])=>{
+    const nx=cur.x+x+dx, ny=cur.y+y+dy;
+    return nx<0||nx>=W||ny>=H||(ny>=0&&grid[ny][nx]);
+  });
+}
+function merge(){
+  cur.mat.forEach(([x,y])=>{
+    const nx=cur.x+x, ny=cur.y+y; if(ny>=0) grid[ny][nx]=cur.color;
+  });
+  sfx.lock.currentTime=0; if(sndOn) sfx.lock.play().catch(()=>{});
+  clearLines();
+  spawn();
+}
+function clearLines(){
+  let c=0;
+  for(let y=H-1;y>=0;y--){
+    if(grid[y].every(v=>v)){ grid.splice(y,1); grid.unshift(Array(W).fill(null)); c++; y++; }
+  }
+  if(c){
+    const points=[0,100,300,500,800][c]||0;
+    score+=points*(level);
+    lines+=c; if(lines>=level*10){level++; dropSpeed=Math.max(10, GRAVITY_START - (level-1)*4)}
+    scoreEl.textContent=score; linesEl.textContent=lines; levelEl.textContent=level;
+    sfx.line.currentTime=0; if(sndOn) sfx.line.play().catch(()=>{});
+  }
+}
+function hardDrop(){
+  let dy=0; while(!collide(0,dy+1,cur.mat)) dy++; cur.y+=dy; draw(); sfx.hard.currentTime=0; if(sndOn) sfx.hard.play().catch(()=>{}); merge();
+}
+function ghostOffset(){
+  let dy=0; while(!collide(0,dy+1,cur.mat)) dy++; return dy;
+}
+function holdSwap(){
+  if(usedHold) return;
+  if(!hold){ hold=cur.type; spawn(); }
+  else { [hold,cur.type]=[cur.type,hold]; cur.mat=SHAPES[cur.type].map(p=>p.slice()); cur.x=3; cur.y=0; }
+  usedHold=true;
+}
+
+/* --- Vykreslení --- */
+function drawCell(x,y,color,ghost=false){
+  const px=x*SZ, py=y*SZ;
+  ctx.fillStyle=ghost?'#ffffff33':color||'#0d1326';
+  ctx.fillRect(px,py,SZ,SZ);
+  if(color){
+    ctx.strokeStyle='#00000055'; ctx.lineWidth=2; ctx.strokeRect(px+.5,py+.5,SZ-1,SZ-1);
+    ctx.fillStyle='#ffffff30'; ctx.fillRect(px+3,py+3,SZ-6,8);
+  } else {
+    ctx.strokeStyle='#111a3d'; ctx.strokeRect(px,py,SZ,SZ);
+  }
+}
+function drawBoard(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) drawCell(x,y,grid[y][x]);
+  // ghost
+  const g=ghostOffset(); cur.mat.forEach(([x,y])=> drawCell(cur.x+x, cur.y+y+g, cur.color, true));
+  // current
+  cur.mat.forEach(([x,y])=> drawCell(cur.x+x, cur.y+y, cur.color));
+}
+function renderHold(){
+  const el=document.getElementById('hold'); el.innerHTML='';
+  const t=hold; const mini = Array.from({length:16},(_,i)=>i);
+  mini.forEach(()=>{const c=document.createElement('div'); c.className='cell'; el.appendChild(c);});
+  if(!t) return;
+  SHAPES[t].forEach(([x,y])=>{
+    const idx=y*4+x; const n=el.children[idx]; if(n){ n.style.background=COLORS[t]; n.style.boxShadow='0 0 8px '+COLORS[t] }
+  });
+}
+function renderNext(){
+  const el=document.getElementById('next'); el.innerHTML='';
+  const peek=[...bag]; while(peek.length<5) peek.push(...bag7());
+  const list=peek.slice(0,5);
+  list.forEach((t,i)=>{
+    const box=document.createDocumentFragment();
+    for(let j=0;j<16;j++){ const d=document.createElement('div'); d.className='cell'; box.appendChild(d); }
+    const base=i*16;
+    SHAPES[t].forEach(([x,y])=>{
+      const idx=base+y*16 + x; const n=el.appendChild(document.createElement('div'));
+    });
+  });
+  // Simpler: draw 5 mini 4x4 grids
+  for(let i=0;i<5;i++){
+    for(let j=0;j<16;j++){ const d=document.createElement('div'); d.className='cell'; el.appendChild(d); }
+    const t=list[i];
+    SHAPES[t].forEach(([x,y])=>{
+      const idx=i*16 + y*4 + x;
+      const n=el.children[idx]; n.style.background=COLORS[t]; n.style.boxShadow='0 0 8px '+COLORS[t];
+    });
+  }
+}
+
+/* --- Game loop --- */
+function step(ts){
+  if(paused||over) { requestAnimationFrame(step); return; }
+  dropCounter++;
+  if(dropCounter>=dropSpeed){ dropCounter=0; if(!collide(0,1,cur.mat)) cur.y++; else merge(); }
+  drawBoard(); requestAnimationFrame(step);
+}
+
+/* --- Ovládání --- */
+document.addEventListener('keydown',e=>{
+  if(over) return;
+  const k=e.key.toLowerCase();
+  if(k==='p'){ paused=!paused; return; }
+  if(paused) return;
+  if(k==='arrowleft'){ if(!collide(-1,0,cur.mat)){ cur.x--; sfx.move.currentTime=0; if(sndOn) sfx.move.play().catch(()=>{});} }
+  else if(k==='arrowright'){ if(!collide(1,0,cur.mat)){ cur.x++; sfx.move.currentTime=0; if(sndOn) sfx.move.play().catch(()=>{});} }
+  else if(k==='arrowdown'){ if(!collide(0,1,cur.mat)) cur.y++; }
+  else if(k===' '){ e.preventDefault(); hardDrop(); }
+  else if(k==='x' || k==='arrowup'){ const m=rotateCW(cur.mat); if(!collide(0,0,m)){ cur.mat=m; sfx.rot.currentTime=0; if(sndOn) sfx.rot.play().catch(()=>{});} }
+  else if(k==='z'){ const m=rotateCCW(cur.mat); if(!collide(0,0,m)){ cur.mat=m; sfx.rot.currentTime=0; if(sndOn) sfx.rot.play().catch(()=>{});} }
+  else if(k==='c'){ holdSwap(); renderHold(); }
+});
+
+q('#pause').onclick=()=>{ paused=!paused };
+q('#restart').onclick=reset;
+q('#again').onclick=()=>{ q('#ov').style.display='none'; reset() };
+sndBtn.onclick=()=>{ sndOn=!sndOn; sndBtn.textContent=sndOn?'🔊':'🔈' };
+
+/* --- Lifecycle --- */
+function gameOver(){
+  over=true; q('#final').textContent=score; q('#ov').style.display='grid';
+}
+function reset(){
+  grid=newGrid(); score=0; lines=0; level=1; dropSpeed=GRAVITY_START; over=false; paused=false;
+  bag=[]; hold=null; usedHold=false;
+  scoreEl.textContent=0; linesEl.textContent=0; levelEl.textContent=1;
+  renderHold(); renderNext(); spawn(); drawBoard(); requestAnimationFrame(step);
+}
+renderHold(); renderNext(); reset();
+</script>
+</body>
+</html>
