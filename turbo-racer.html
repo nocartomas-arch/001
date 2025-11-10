@@ -57,7 +57,7 @@
             margin: 20px auto;
             box-shadow: 0 0 40px rgba(255, 215, 0, 0.6);
         }
-        #gameOver, #paused {
+        #gameOver, #paused, #startScreen, #leaderboardModal {
             display: none;
             position: absolute;
             top: 50%;
@@ -222,7 +222,7 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        let gameRunning = true;
+        let gameRunning = false;
         let paused = false;
         let score = 0;
         let distance = 0;
@@ -317,6 +317,7 @@
                 const nameSpan = document.createElement('span');
                 nameSpan.textContent = `${index + 1}. ${entry.name}`;
                 const resultSpan = document.createElement('span');
+                resultSpan.textContent = `${formatNumber(entry.distance)} m | Skóre ${formatNumber(entry.score)}`;
                 resultSpan.textContent = `${entry.distance} m | Skóre ${entry.score}`;
                 item.appendChild(nameSpan);
                 item.appendChild(resultSpan);
@@ -364,6 +365,21 @@
         }
 
         renderHighScores();
+
+        function openLeaderboard() {
+            renderHighScores();
+            const modal = document.getElementById('leaderboardModal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
+
+        function closeLeaderboard() {
+            const modal = document.getElementById('leaderboardModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
 
         function createEnemy() {
             const lane = Math.floor(Math.random() * 3);
@@ -570,6 +586,7 @@
         function updateDistance(deltaTime) {
             const metersPerSecond = (speed * 20) / 3.6;
             distance += metersPerSecond * deltaTime;
+            document.getElementById('distance').textContent = formatNumber(Math.round(distance));
             document.getElementById('distance').textContent = Math.round(distance);
 
             // Zvýšení levelu a rychlosti
@@ -584,11 +601,11 @@
         }
         
         function updateScore() {
-            document.getElementById('score').textContent = score;
+            document.getElementById('score').textContent = formatNumber(score);
         }
         
         function updateSpeed() {
-            document.getElementById('speed').textContent = Math.floor(speed * 20);
+            document.getElementById('speed').textContent = formatNumber(Math.floor(speed * 20));
         }
         
         let frameCount = 0;
@@ -640,6 +657,8 @@
         
         function endGame() {
             gameRunning = false;
+            document.getElementById('finalScore').textContent = formatNumber(score);
+            document.getElementById('finalDistance').textContent = formatNumber(Math.round(distance));
             document.getElementById('finalScore').textContent = score;
             document.getElementById('finalDistance').textContent = Math.round(distance);
             document.getElementById('finalLevel').textContent = level;
@@ -657,6 +676,7 @@
                 nameInput.value = '';
                 nameInput.focus();
             }
+            startMenuActive = false;
         }
 
         function togglePause() {
@@ -683,9 +703,10 @@
 
             document.getElementById('gameOver').style.display = 'none';
             document.getElementById('paused').style.display = 'none';
+            closeLeaderboard();
 
             updateScore();
-            document.getElementById('distance').textContent = '0';
+            document.getElementById('distance').textContent = formatNumber(0);
             document.getElementById('level').textContent = '1';
             const saveMessage = document.getElementById('saveMessage');
             const saveButton = document.getElementById('saveButton');
@@ -699,21 +720,38 @@
             requestAnimationFrame(gameLoop);
         }
 
+        function startGame() {
+            const startScreen = document.getElementById('startScreen');
+            if (startScreen) {
+                startScreen.style.display = 'none';
+            }
+            startMenuActive = false;
+            closeLeaderboard();
+            restart();
+        }
+
         function goHome() {
             window.location.href = 'index.html';
         }
-        
+
         // Ovládání
         const keys = {};
-        
+
         document.addEventListener('keydown', (e) => {
             keys[e.key] = true;
-            
+
+            if (startMenuActive && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                startGame();
+                return;
+            }
+
             if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
                 if (gameRunning) togglePause();
+                else closeLeaderboard();
             }
         });
-        
+
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
         });
@@ -730,6 +768,13 @@
         }, 16);
         
         // Start
+        updateScore();
+        updateSpeed();
+        document.getElementById('distance').textContent = formatNumber(0);
+        const startScreen = document.getElementById('startScreen');
+        if (startScreen) {
+            startScreen.style.display = 'flex';
+        }
         requestAnimationFrame(gameLoop);
     </script>
 </body>
