@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mahjong Solitaire</title>
+<style>
+  :root{--bg:#081218;--panel:#0f1f2a;--tile:#f7f4ea;--ink:#24344a;--accent:#38d9a9;--text:#e6f6ff}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:radial-gradient(1200px 500px at 20% -10%,#0e2531,#081218);display:grid;place-items:center;color:var(--text);font-family:Inter,system-ui,Segoe UI,Arial}
+  .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;justify-content:center;padding:18px}
+  .left{background:var(--panel);padding:14px 16px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  h1{margin:0 0 6px;font-weight:800}
+  .meta{opacity:.9;margin-bottom:10px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  button{background:var(--accent);color:#052e25;border:0;border-radius:12px;padding:10px 14px;font-weight:800;cursor:pointer;box-shadow:0 6px 0 #1a8066;transition:.12s}
+  button:hover{transform:translateY(-1px);box-shadow:0 8px 0 #1a8066}
+  button:active{transform:translateY(2px);box-shadow:0 3px 0 #1a8066}
+  .ghost{background:#1a3140;color:#ccebf5;box-shadow:none}
+  .pill{background:#14293a;border-radius:999px;padding:8px 12px;display:inline-flex;gap:10px;align-items:center}
+  canvas{background:#0a1720;border-radius:16px;box-shadow:inset 0 0 0 4px #123047,0 16px 50px rgba(0,0,0,.55);touch-action:none}
+  .legend{font-size:.95rem;opacity:.9;margin-top:8px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="left">
+      <h1>🀄 Mahjong Solitaire</h1>
+      <div class="meta">Klikni na dvě shodné <em>volné</em> dlaždice. Zpět/Znovu, míchat poslední vrstvu, timer & best time.</div>
+      <div class="bar">
+        <button id="new">Nová hra</button>
+        <button id="undo" class="ghost">Zpět</button>
+        <button id="redo" class="ghost">Znovu</button>
+        <button id="shuffle" class="ghost">Zamíchat vrchní</button>
+      </div>
+      <div class="bar">
+        <span class="pill">⏱️ Čas: <strong id="time">00:00</strong></span>
+        <span class="pill">🃏 Zbývá: <strong id="left">0</strong></span>
+        <span class="pill">🏆 Best: <strong id="best">–</strong></span>
+      </div>
+      <canvas id="cv" width="980" height="700" aria-label="Mahjong plátno"></canvas>
+      <div class="legend">„Volná“ = nic nad ní a vlevo <u>nebo</u> vpravo žádná sousedící dlaždice ve stejné vrstvě.</div>
+    </div>
+  </div>
+
+<script>
+/* ====== Canvas & state ====== */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const tileW=70, tileH=90, tileDx=6, tileDy=6; // pseudo 3D offset
+let tiles=[], selected=null, history=[], future=[], startTime=0, timer=null;
+
+const suits = [
+  {name:'Bambus', color:'#2fbf71', symbols:['1','2','3','4','5','6','7','8','9']},
+  {name:'Kruhy',  color:'#35a7ff', symbols:['1','2','3','4','5','6','7','8','9']},
+  {name:'Znaky',  color:'#ff5c5c', symbols:['1','2','3','4','5','6','7','8','9']},
+  {name:'Roční',  color:'#ffd166', symbols:['J','Z','L','P']}, // jaro/zima/… (wildcards pair by kind)
+  {name:'Květy',  color:'#c77dff', symbols:['1','2','3','4']},
+];
+function makeSet(){
+  const arr=[];
+  // klasické páry: 4 kopie u běžných (celkem 36*4=144 s klasikou),
+  // my zjednodušíme na 2 kopie pro plynulejší hru (po 2 ks od každé)
+  suits.forEach(s=>{
+    s.symbols.forEach(sym=>{
+      const copies = (s.name==='Roční' || s.name==='Květy') ? 1 : 2; // speciály: po 1, ale párují se mezi sebou v rámci druhu
+      for(let k=0;k<2*copies;k++) arr.push({suit:s.name,sym, color:s.color, special:(s.name==='Roční'||s.name==='Květy')});
+    });
+  });
+  // Omezíme na ~144 kusů
+  while(arr.length>144) arr.splice((Math.random()*arr.length)|0,1);
+  return arr;
+}
+
+/* ====== Layout: Turtle (zjednodušený) ====== */
+function turtleCoords(){
+  // vrací pole {x,y,z} ve „buňkách“. Každá buňka = posun (tileW*0.5, tileH*0.5)
+  const L=[];
+  function layer(z,w,h,padX=0,padY=0){
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        L.push({x:x+padX,y:y+padY,z});
+      }
+    }
+  }
+  // spodní velká základna
+  layer(0,15,7,0,0);
+  // menší
+  layer(1,13,5,1,1);
+  layer(2,11,3,2,2);
+  layer(3,9,1,3,3);
+  // mosty po stranách
+  for(let z=1; z<=2; z++){
+    for(let y=1; y<=3; y++){
+      L.push({x:0,y:y+1,z});
+      L.push({x:14,y:y+1,z});
+    }
+  }
+  // vršek
+  L.push({x:7,y:3,z:4});
+  return L;
+}
+
+/* ====== Build game ====== */
+function newGame(){
+  const coords = turtleCoords();
+  const set = makeSet().sort(()=>Math.random()-0.5);
+  tiles = [];
+  coords.forEach((c,i)=>{
+    if(!set[i]) return;
+    tiles.push({
+      id:i, x: c.x, y: c.y, z: c.z, face: set[i],
+      removed:false
+    });
+  });
+  selected=null; history=[]; future=[];
+  $('#left').textContent = tiles.length;
+  startTimer();
+  draw();
+}
+
+function startTimer(){
+  clearInterval(timer);
+  startTime = Date.now();
+  timer = setInterval(()=>$('#time').textContent = fmt(Math.floor((Date.now()-startTime)/1000)), 250);
+  const best = +localStorage.getItem('mahjong_best') || Infinity;
+  $('#best').textContent = (best===Infinity)?'–':fmt(best);
+}
+function fmt(t){return `${String((t/60)|0).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;}
+const $=s=>document.querySelector(s);
+
+/* ====== Geometry helpers ====== */
+function screenPos(tile){
+  // každý grid krok je polovina reálné šířky, díky „zubatému“ turtle layoutu se lépe skládá
+  const baseX = 40 + tile.x*(tileW*0.66);
+  const baseY = 40 + tile.y*(tileH*0.66);
+  return {x: baseX + tile.z*tileDx, y: baseY - tile.z*tileDy};
+}
+function rect(tile){
+  const p=screenPos(tile);
+  return {x:p.x, y:p.y, w:tileW, h:tileH};
+}
+function overlaps(a,b){
+  return !(a.x+a.w <= b.x || b.x+b.w <= a.x || a.y+a.h <= b.y || b.y+b.h <= a.y);
+}
+function hasTop(tile){
+  const r1 = rect(tile);
+  r1.x+=8; r1.y+=8; r1.w-=16; r1.h-=16; // toleranční menší overlap
+  return tiles.some(t=>!t.removed && t.z>tile.z && overlaps(r1, rect(t)));
+}
+function sideBlocked(tile){
+  // blokuje-li soused vlevo nebo vpravo na stejné vrstvě (zhruba)
+  const r=rect(tile);
+  const left = {x:r.x- (tileW*0.66), y:r.y+6, w:tileW*0.66, h:r.h-12};
+  const right= {x:r.x+ r.w,          y:r.y+6, w:tileW*0.66, h:r.h-12};
+  const atZ = tiles.filter(t=>!t.removed && t.z===tile.z);
+  const l = atZ.some(t=>overlaps(left,rect(t)));
+  const rB= atZ.some(t=>overlaps(right,rect(t)));
+  return l && rB;
+}
+function isFree(tile){ return !hasTop(tile) && !sideBlocked(tile); }
+
+/* ====== Draw ====== */
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // stínová základna
+  ctx.fillStyle = '#07121a';
+  ctx.fillRect(20,20,cv.width-40,cv.height-40);
+
+  // z-index: seřadit dle z, pak y, pak x
+  const tdraw = tiles.slice().sort((a,b)=> a.z-b.z || a.y-b.y || a.x-b.x);
+  tdraw.forEach(t=>{
+    if(t.removed) return;
+    const {x,y}=screenPos(t);
+    // drop shadow
+    ctx.fillStyle='rgba(0,0,0,.35)';
+    ctx.fillRect(x+10,y+14,tileW,tileH);
+
+    // tělo
+    const free = isFree(t);
+    const stroke = free ? '#35d3a5' : '#1c2f3c';
+    // vrstvený okraj
+    ctx.fillStyle = '#e9e4d5';
+    roundRect(ctx,x,y,tileW,tileH,10,true,false);
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    roundRect(ctx,x+3,y+3,tileW-6,tileH-6,8,true,false);
+    ctx.strokeStyle = stroke; ctx.lineWidth=3;
+    roundRect(ctx,x+1.5,y+1.5,tileW-3,tileH-3,9,false,true);
+
+    // obsah
+    ctx.save();
+    ctx.translate(x+tileW/2,y+tileH/2);
+    ctx.fillStyle = t.face.color;
+    ctx.font = 'bold 28px system-ui, Segoe UI, Arial';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(t.face.special){
+      ctx.font='bold 22px system-ui';
+      ctx.fillText(t.face.suit==='Roční'?'❀': '✿',0,-8);
+      ctx.fillText(t.face.sym,0,18);
+    }else{
+      ctx.fillText(t.face.sym,0,0);
+    }
+    ctx.restore();
+
+    // výběr
+    if(selected && selected.id===t.id){
+      ctx.strokeStyle='#ffd166'; ctx.lineWidth=4;
+      roundRect(ctx,x-3,y-3,tileW+6,tileH+6,12,false,true);
+    }
+  });
+}
+function roundRect(ctx,x,y,w,h,r,fill,stroke){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+  if(fill) ctx.fill();
+  if(stroke) ctx.stroke();
+}
+
+/* ====== Input ====== */
+cv.addEventListener('click',e=>{
+  const rect=cv.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  // vyber nejvyšší dlaždici pod kurzorem
+  const hit = tiles
+    .filter(t=>!t.removed)
+    .sort((a,b)=> b.z-a.z || b.y-a.y || b.x-a.x)
+    .find(t=>{
+      const r=rectOf(t); return mx>=r.x && mx<=r.x+r.w && my>=r.y && my<=r.y+r.h;
+    });
+  if(!hit) return;
+  if(!isFree(hit)) return;
+
+  if(!selected){ selected=hit; draw(); return; }
+
+  // párování
+  if(match(selected,hit)){
+    pushHistory();
+    selected.removed=true; hit.removed=true; selected=null; future.length=0;
+    const left = tiles.filter(t=>!t.removed).length;
+    $('#left').textContent = left;
+    draw();
+    // win?
+    if(left===0){
+      clearInterval(timer);
+      const timeSec = Math.floor((Date.now()-startTime)/1000);
+      const bestKey='mahjong_best';
+      const prev=+localStorage.getItem(bestKey)||Infinity;
+      if(timeSec<prev) localStorage.setItem(bestKey,String(timeSec));
+      alert(`🎉 Vyhráno! Čas ${fmt(timeSec)}`);
+      $('#best').textContent = fmt(Math.min(prev,timeSec));
+    }
+  } else {
+    selected = hit; draw();
+  }
+});
+function rectOf(t){ return rect(t); }
+function match(a,b){
+  if(a.id===b.id) return false;
+  if(a.face.special && b.face.special && a.face.suit===b.face.suit) return true;
+  return a.face.suit===b.face.suit && a.face.sym===b.face.sym;
+}
+
+/* ====== Undo/Redo & Shuffle ====== */
+function pushHistory(){
+  // uložíme shallow stav odstranění
+  history.push(tiles.map(t=>t.removed));
+  if(history.length>200) history.shift();
+}
+$('#undo').onclick=()=>{
+  if(history.length===0) return;
+  future.push(tiles.map(t=>t.removed));
+  const prev = history.pop();
+  tiles.forEach((t,i)=>t.removed=prev[i]);
+  selected=null; $('#left').textContent=tiles.filter(t=>!t.removed).length; draw();
+};
+$('#redo').onclick=()=>{
+  if(future.length===0) return;
+  history.push(tiles.map(t=>t.removed));
+  const nxt=future.pop();
+  tiles.forEach((t,i)=>t.removed=nxt[i]);
+  selected=null; $('#left').textContent=tiles.filter(t=>!t.removed).length; draw();
+};
+$('#shuffle').onclick=()=>{
+  // zamícháme jen nejvyšší vrstvu (max z), a jen neodebrané
+  const maxZ = Math.max(...tiles.map(t=>t.z));
+  const top = tiles.filter(t=>!t.removed && t.z===maxZ);
+  const pos = top.map(t=>({x:t.x,y:t.y}));
+  pos.sort(()=>Math.random()-0.5);
+  top.forEach((t,i)=>{ t.x=pos[i].x; t.y=pos[i].y; });
+  draw();
+};
+
+/* ====== Buttons ====== */
+$('#new').onclick=()=>{ newGame(); };
+
+/* ====== Start ====== */
+newGame();
+</script>
+</body>
+</html>
