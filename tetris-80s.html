@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tetris (1984) – Retro</title>
+  <style>
+    :root{
+      --bg:#111;
+      --fg:#eee;
+      --grid:#20232a;
+      --accent:#00ff7f;
+      --shadow:#0b0;
+      --panel:#1a1a1a;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background: radial-gradient(circle at 20% 20%, #222 0%, #111 45%, #000 100%);
+      color:var(--fg);font-family:Courier New, monospace;
+    }
+    .wrap{display:flex;gap:24px;align-items:flex-start}
+    canvas{border:4px solid var(--accent);box-shadow:0 0 24px var(--shadow)}
+    .panel{
+      width:260px;background:var(--panel);border:2px solid #333;border-radius:8px;
+      padding:16px 16px 12px
+    }
+    h1{font-size:22px;letter-spacing:1px;margin-bottom:8px;color:var(--accent);text-shadow:0 0 8px var(--shadow)}
+    .stat{display:flex;justify-content:space-between;margin:8px 0;font-size:16px}
+    .next{
+      margin-top:12px;padding-top:12px;border-top:1px solid #333
+    }
+    .keys{margin-top:12px;font-size:14px;line-height:1.6;opacity:.9}
+    .btns{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+    button{
+      background:var(--accent);color:#000;border:none;border-radius:6px;padding:8px 12px;
+      font-weight:700;cursor:pointer;box-shadow:0 3px 0 #009e57;transition:transform .06s
+    }
+    button:active{transform:translateY(2px)}
+    .footer{margin-top:10px;font-size:12px;opacity:.8}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="board" width="240" height="480" aria-label="Tetris hrací pole"></canvas>
+
+    <div class="panel">
+      <h1>🎮 TETRIS (1984)</h1>
+      <div class="stat"><span>Skóre</span><strong id="score">0</strong></div>
+      <div class="stat"><span>Řádky</span><strong id="lines">0</strong></div>
+      <div class="stat"><span>Level</span><strong id="level">1</strong></div>
+
+      <div class="next">
+        <div class="stat" style="margin-bottom:8px;"><span>Další dílek</span></div>
+        <canvas id="next" width="120" height="120" style="border:2px solid #333;background:#0b0b0b"></canvas>
+      </div>
+
+      <div class="keys">
+        ⬅️ ➡️ posun | ⬆️ rotace | ⬇️ rychle dolů<br>
+        ␣ tvrdý drop | P pauza
+      </div>
+
+      <div class="btns">
+        <button id="btnRestart">🔄 Restart</button>
+        <a href="../index.html"><button>🏠 Menu</button></a>
+      </div>
+
+      <div class="footer">Retro styl 80s – bez knihoven</div>
+    </div>
+  </div>
+
+  <script>
+  // ===== Nastavení plochy =====
+  const COLS = 10, ROWS = 20, CELL = 24;   // 10x20, jeden blok 24px => 240x480
+  const board = document.getElementById('board');
+  const ctx = board.getContext('2d');
+
+  const nextCanvas = document.getElementById('next');
+  const nctx = nextCanvas.getContext('2d');
+
+  // Barvy tvarů (NES paleta-ish)
+  const COLORS = {
+    I: '#6FFFE9',
+    O: '#F7F06D',
+    T: '#C77DFF',
+    S: '#5CF26B',
+    Z: '#FF6B6B',
+    J: '#6CA0FF',
+    L: '#FFC069'
+  };
+
+  // Definice tvarů 4x4 (matice)
+  const SHAPES = {
+    I: [
+      [0,0,0,0],
+      [1,1,1,1],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    O: [
+      [0,1,1,0],
+      [0,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    T: [
+      [0,1,0,0],
+      [1,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    S: [
+      [0,1,1,0],
+      [1,1,0,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    Z: [
+      [1,1,0,0],
+      [0,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    J: [
+      [1,0,0,0],
+      [1,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    L: [
+      [0,0,1,0],
+      [1,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+  };
+
+  const PIECES = Object.keys(SHAPES);
+
+  // Hrací stav
+  let grid = createGrid(ROWS, COLS);
+  let falling = null;
+  let bag = [];
+  let nextPieceKey = randomPieceKey();
+  let score = 0, lines = 0, level = 1;
+  let dropCounter = 0;
+  let dropInterval = levelToMs(level);
+  let lastTime = 0;
+  let paused = false;
+  let gameOver = false;
+
+  function createGrid(r, c){
+    return Array.from({length:r}, () => Array(c).fill(null));
+  }
+
+  function levelToMs(lv){
+    // rychlejší s levelem (klasická křivka)
+    return Math.max(120, 1000 - (lv-1)*80);
+  }
+
+  function randomPieceKey(){
+    // 7-bag systém
+    if (bag.length === 0){
+      bag = PIECES.slice();
+      for (let i=bag.length-1; i>0; i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+    }
+    return bag.pop();
+  }
+
+  function spawn(){
+    const key = nextPieceKey;
+    nextPieceKey = randomPieceKey();
+
+    const shape = SHAPES[key].map(row => row.slice());
+    falling = {
+      key,
+      shape,
+      x: 3,
+      y: 0,
+      color: COLORS[key]
+    };
+    if (collide(grid, falling)){
+      gameOver = true;
+    }
+    drawNext();
+  }
+
+  function rotate(matrix){
+    // Transpozice + převrátit řádky
+    const N = matrix.length;
+    const r = createGrid(N,N);
+    for (let y=0;y<N;y++){
+      for (let x=0;x<N;x++){
+        r[x][N-1-y] = matrix[y][x];
+      }
+    }
+    return r;
+  }
+
+  function collide(board, piece){
+    for (let y=0;y<4;y++){
+      for (let x=0;x<4;x++){
+        if (piece.shape[y][x]){
+          const nx = piece.x + x;
+          const ny = piece.y + y;
+          if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+          if (ny >= 0 && board[ny][nx]) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function merge(board, piece){
+    for (let y=0;y<4;y++){
+      for (let x=0;x<4;x++){
+        if (piece.shape[y][x]){
+          const nx = piece.x + x;
+          const ny = piece.y + y;
+          if (ny >= 0) board[ny][nx] = { color: piece.color };
+        }
+      }
+    }
+  }
+
+  function clearLines(){
+    let cleared = 0;
+    outer: for (let y=ROWS-1; y>=0; y--){
+      for (let x=0;x<COLS;x++){
+        if (!grid[y][x]) continue outer;
+      }
+      // řádek plný – vymaž
+      const row = grid.splice(y,1)[0];
+      row.fill(null);
+      grid.unshift(row);
+      cleared++;
+      y++;
+    }
+    if (cleared){
+      const points = [0, 100, 300, 500, 800]; // 1–4 řádky
+      score += points[cleared]*level;
+      lines += cleared;
+      // level up každých 10 řádků
+      const newLevel = Math.floor(lines/10)+1;
+      if (newLevel !== level){
+        level = newLevel;
+        dropInterval = levelToMs(level);
+      }
+      updateHUD();
+    }
+  }
+
+  function drawCell(x,y,color){
+    ctx.fillStyle = color;
+    ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
+    // okraj
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x*CELL+0.5,y*CELL+0.5,CELL-1,CELL-1);
+  }
+
+  function drawBoard(){
+    // pozadí gridu
+    ctx.fillStyle = '#0b0b0b';
+    ctx.fillRect(0,0,board.width,board.height);
+    ctx.strokeStyle = '#222';
+    for (let x=0;x<=COLS;x++){
+      ctx.beginPath();ctx.moveTo(x*CELL,0);ctx.lineTo(x*CELL,ROWS*CELL);ctx.stroke();
+    }
+    for (let y=0;y<=ROWS;y++){
+      ctx.beginPath();ctx.moveTo(0,y*CELL);ctx.lineTo(COLS*CELL,y*CELL);ctx.stroke();
+    }
+    // umístěné bloky
+    for (let y=0;y<ROWS;y++){
+      for (let x=0;x<COLS;x++){
+        if (grid[y][x]) drawCell(x,y,grid[y][x].color);
+      }
+    }
+    // padající tvar
+    if (falling){
+      for (let y=0;y<4;y++){
+        for (let x=0;x<4;x++){
+          if (falling.shape[y][x]){
+            drawCell(falling.x+x, falling.y+y, falling.color);
+          }
+        }
+      }
+    }
+    if (gameOver){
+      ctx.fillStyle = 'rgba(0,0,0,.6)';
+      ctx.fillRect(0,0,board.width,board.height);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.font='bold 22px Courier New';
+      ctx.fillText('GAME OVER', board.width/2, board.height/2 - 8);
+      ctx.font='14px Courier New';
+      ctx.fillText('Stiskni Restart', board.width/2, board.height/2 + 16);
+    }
+  }
+
+  function drawNext(){
+    nctx.fillStyle = '#0b0b0b';
+    nctx.fillRect(0,0,nextCanvas.width,nextCanvas.height);
+    const shape = SHAPES[nextPieceKey];
+    const color = COLORS[nextPieceKey];
+    // vycentrovat
+    const size = 4;
+    let minX=4,maxX=-1,minY=4,maxY=-1;
+    for (let y=0;y<4;y++)for(let x=0;x<4;x++){
+      if (shape[y][x]){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);}
+    }
+    const w = (maxX-minX+1)*CELL*0.75;
+    const h = (maxY-minY+1)*CELL*0.75;
+    const offsetX = (nextCanvas.width - w)/2 - minX*CELL*0.75;
+    const offsetY = (nextCanvas.height - h)/2 - minY*CELL*0.75;
+
+    for (let y=0;y<4;y++){
+      for (let x=0;x<4;x++){
+        if (shape[y][x]){
+          const px = offsetX + x*CELL*0.75;
+          const py = offsetY + y*CELL*0.75;
+          nctx.fillStyle=color;
+          nctx.fillRect(px,py,CELL*0.75,CELL*0.75);
+          nctx.strokeStyle='#000';
+          nctx.strokeRect(px+.5,py+.5,CELL*0.75-1,CELL*0.75-1);
+        }
+      }
+    }
+  }
+
+  function hardDrop(){
+    if (!falling) return;
+    while (!collide(grid, {...falling, y:falling.y+1})){
+      falling.y++;
+      score += 2; // menší bonus za tvrdý drop
+    }
+    lockPiece();
+  }
+
+  function softDrop(){
+    if (!falling) return;
+    if (!collide(grid, {...falling, y:falling.y+1})){
+      falling.y++;
+      score += 1;
+    } else {
+      lockPiece();
+    }
+  }
+
+  function move(dir){
+    if (!falling) return;
+    const test = {...falling, x: falling.x+dir};
+    if (!collide(grid, test)) falling.x += dir;
+  }
+
+  function rotatePiece(){
+    if (!falling) return;
+    const rotated = rotate(falling.shape);
+    // jednoduchý wall-kick
+    const tests = [0, -1, 1, -2, 2];
+    for (const dx of tests){
+      const test = {...falling, shape:rotated, x:falling.x+dx};
+      if (!collide(grid,test)){ falling.shape = rotated; falling.x += dx; return; }
+    }
+  }
+
+  function lockPiece(){
+    merge(grid, falling);
+    clearLines();
+    spawn();
+  }
+
+  function update(time=0){
+    if (paused || gameOver){ drawBoard(); return; }
+    const delta = time - lastTime;
+    lastTime = time;
+    dropCounter += delta;
+    if (dropCounter > dropInterval){
+      softDrop();
+      dropCounter = 0;
+    }
+    drawBoard();
+    requestAnimationFrame(update);
+  }
+
+  function updateHUD(){
+    document.getElementById('score').textContent = score;
+    document.getElementById('lines').textContent = lines;
+    document.getElementById('level').textContent = level;
+  }
+
+  // Ovládání
+  const held = {left:false,right:false,down:false};
+  let repeatTimer = null;
+
+  function startRepeat(){
+    stopRepeat();
+    repeatTimer = setInterval(()=>{
+      if (held.left) move(-1);
+      if (held.right) move(1);
+      if (held.down)  softDrop();
+    }, 60);
+  }
+  function stopRepeat(){
+    if (repeatTimer){ clearInterval(repeatTimer); repeatTimer=null; }
+  }
+
+  document.addEventListener('keydown', (e)=>{
+    if (gameOver) return;
+    if (e.code==='ArrowLeft'){ held.left=true; move(-1); startRepeat(); }
+    else if (e.code==='ArrowRight'){ held.right=true; move(1); startRepeat(); }
+    else if (e.code==='ArrowUp'){ rotatePiece(); }
+    else if (e.code==='ArrowDown'){ held.down=true; softDrop(); startRepeat(); }
+    else if (e.code==='Space'){ e.preventDefault(); hardDrop(); }
+    else if (e.key.toLowerCase()==='p'){ paused=!paused; }
+  });
+  document.addEventListener('keyup', (e)=>{
+    if (e.code==='ArrowLeft'){ held.left=false; }
+    else if (e.code==='ArrowRight'){ held.right=false; }
+    else if (e.code==='ArrowDown'){ held.down=false; }
+    if (!held.left && !held.right && !held.down) stopRepeat();
+  });
+
+  document.getElementById('btnRestart').addEventListener('click', ()=>{
+    grid = createGrid(ROWS,COLS);
+    score=0;lines=0;level=1;dropInterval=levelToMs(level);
+    gameOver=false; paused=false; updateHUD();
+    spawn();
+  });
+
+  // Start
+  updateHUD();
+  spawn();
+  requestAnimationFrame(update);
+  </script>
+</body>
+</html>
