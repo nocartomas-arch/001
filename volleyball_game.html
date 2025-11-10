@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volleyball</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #F4A460 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        #gameContainer { text-align: center; }
+        h1 { color: #FF4500; font-size: 3em; margin-bottom: 10px; text-shadow: 3px 3px 6px rgba(0,0,0,0.3); }
+        #score { font-size: 48px; color: #FF4500; margin: 20px 0; font-weight: bold; }
+        #gameCanvas {
+            border: 5px solid #8B4513;
+            background: #F4A460;
+            display: block;
+            margin: 20px auto;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #FF4500;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        button:hover { background: #FF6347; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🏐 VOLLEYBALL 🏐</h1>
+        <div id="score">0 : 0</div>
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <div style="color: #8B4513; margin: 15px;">W/S = pohyb | MEZERNÍK = skok | První na 15!</div>
+        <button onclick="restart()">🔄 RESTART</button>
+        <button onclick="window.location.href='index.html'">🏠 MENU</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let p1Score = 0, p2Score = 0, gameRunning = true;
+        const p1 = {x: 100, y: canvas.height - 80, width: 30, height: 60, dy: 0, jumping: false};
+        const p2 = {x: canvas.width - 130, y: canvas.height - 80, width: 30, height: 60, dy: 0, jumping: false};
+        const ball = {x: 200, y: 100, radius: 15, dx: 5, dy: 2, gravity: 0.3};
+        const net = {x: canvas.width / 2 - 5, y: canvas.height - 150, width: 10, height: 150};
+        
+        function draw() {
+            // Pozadí
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.7, '#F4A460');
+            gradient.addColorStop(1, '#DEB887');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Síť
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(net.x, net.y, net.width, net.height);
+            for (let i = 0; i < 10; i++) {
+                ctx.fillRect(net.x, net.y + i * 20, net.width, 2);
+            }
+            
+            // Hráči
+            ctx.fillStyle = '#FF0000';
+            ctx.fillRect(p1.x, p1.y, p1.width, p1.height);
+            ctx.fillStyle = '#0000FF';
+            ctx.fillRect(p2.x, p2.y, p2.width, p2.height);
+            
+            // Míč
+            ctx.fillStyle = '#FFFF00';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = 'rgba(255, 255, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            // Míč
+            ball.dy += ball.gravity;
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            // Stěny
+            if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.dx *= -1;
+            
+            // Země
+            if (ball.y + ball.radius > canvas.height - 40) {
+                if (ball.x < canvas.width / 2) {
+                    p2Score++;
+                } else {
+                    p1Score++;
+                }
+                document.getElementById('score').textContent = `${p1Score} : ${p2Score}`;
+                resetBall();
+                
+                if (p1Score >= 15 || p2Score >= 15) {
+                    setTimeout(() => alert((p1Score > p2Score ? 'Červený' : 'Modrý') + ' vyhrál!'), 100);
+                    restart();
+                }
+            }
+            
+            // Síť
+            if (ball.x + ball.radius > net.x && ball.x - ball.radius < net.x + net.width &&
+                ball.y + ball.radius > net.y) {
+                ball.dx *= -1;
+                ball.x = ball.dx > 0 ? net.x + net.width + ball.radius : net.x - ball.radius;
+            }
+            
+            // Hráči
+            [p1, p2].forEach(player => {
+                player.dy += 0.8;
+                player.y += player.dy;
+                if (player.y > canvas.height - 80) {
+                    player.y = canvas.height - 80;
+                    player.dy = 0;
+                    player.jumping = false;
+                }
+                
+                // Kolize s míčem
+                if (ball.x + ball.radius > player.x && ball.x - ball.radius < player.x + player.width &&
+                    ball.y + ball.radius > player.y && ball.y - ball.radius < player.y + player.height) {
+                    ball.dx = (ball.x - (player.x + player.width / 2)) * 0.3;
+                    ball.dy = -8;
+                }
+            });
+            
+            // AI pro hráče 2
+            if (ball.x > canvas.width / 2 && ball.dx > 0) {
+                if (p2.y > ball.y - 30 && !p2.jumping) p2.dy = -12, p2.jumping = true;
+                if (p2.x + p2.width / 2 < ball.x - 10) p2.x += 3;
+                if (p2.x + p2.width / 2 > ball.x + 10) p2.x -= 3;
+            }
+        }
+        
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = 100;
+            ball.dx = (Math.random() - 0.5) * 8;
+            ball.dy = 2;
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function restart() {
+            p1Score = 0;
+            p2Score = 0;
+            document.getElementById('score').textContent = '0 : 0';
+            resetBall();
+            p1.y = canvas.height - 80;
+            p2.y = canvas.height - 80;
+        }
+        
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.code === 'Space' && !p1.jumping) {
+                p1.dy = -12;
+                p1.jumping = true;
+            }
+        });
+        document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+        
+        setInterval(() => {
+            if (keys['w'] || keys['W']) p1.y -= 4;
+            if (keys['s'] || keys['S']) p1.y += 4;
+            if (keys['a'] || keys['A']) p1.x -= 4;
+            if (keys['d'] || keys['D']) p1.x += 4;
+            if (p1.x < 0) p1.x = 0;
+            if (p1.x > canvas.width / 2 - 60) p1.x = canvas.width / 2 - 60;
+        }, 16);
+        
+        gameLoop();
+    </script>
+</body>
+</html>
