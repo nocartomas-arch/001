@@ -146,7 +146,7 @@
         </div>
         <canvas id="gameCanvas" width="600" height="800"></canvas>
         <div id="countdown"></div>
-        <div id="instructions">⬅️ ➡️ ŠIPKY = řízení | Dojeď 3 kola co nejrychleji!</div>
+        <div id="instructions">⬅️ ➡️ ŠIPKY = řízení | ⬆️ Zrychlení | ⬇️ Brzda | Dojeď 3 kola co nejrychleji!</div>
         
         <button onclick="startRace()">🏁 START ZÁVODU</button>
         <button onclick="goHome()">🏠 MENU</button>
@@ -181,20 +181,23 @@
         let time = 0;
         let lap = 1;
         let checkpointsPassed = 0;
-        
+        let speedTotal = 0;
+        let speedSamples = 0;
+
         const car = {
             x: canvas.width / 2 - 25,
             y: canvas.height - 150,
             width: 50,
             height: 80,
             speed: 0,
-            maxSpeed: 12,
-            acceleration: 0.3,
-            deceleration: 0.2,
-            turnSpeed: 5,
+            maxSpeed: 10,
+            acceleration: 0.25,
+            brake: 0.4,
+            deceleration: 0.08,
+            turnSpeed: 0.05,
             angle: 0
         };
-        
+
         const track = {
             centerX: canvas.width / 2,
             innerRadius: 150,
@@ -202,16 +205,27 @@
             roadWidth: 130
         };
         
-        let obstacles = [];
         let checkpoints = [];
-        
+
         function initCheckpoints() {
             checkpoints = [
+                {angle: -Math.PI / 2, passed: false},
                 {angle: 0, passed: false},
                 {angle: Math.PI / 2, passed: false},
-                {angle: Math.PI, passed: false},
-                {angle: Math.PI * 1.5, passed: false}
+                {angle: Math.PI, passed: false}
             ];
+        }
+
+        function positionCarAtStart() {
+            const radius = track.innerRadius + track.roadWidth / 2;
+            const startAngle = -Math.PI / 2;
+            const carCenterX = track.centerX + Math.cos(startAngle) * radius;
+            const carCenterY = canvas.height / 2 + Math.sin(startAngle) * radius;
+
+            car.x = carCenterX - car.width / 2;
+            car.y = carCenterY - car.height / 2;
+            car.angle = Math.PI / 2;
+            car.speed = 0;
         }
         
         function drawTrack() {
@@ -271,7 +285,7 @@
             ctx.save();
             ctx.translate(car.x + car.width / 2, car.y + car.height / 2);
             ctx.rotate(car.angle);
-            
+
             // Stín
             ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
             ctx.fillRect(-car.width / 2 + 5, -car.height / 2 + 5, car.width, car.height);
@@ -300,69 +314,81 @@
         
         function updateCar() {
             if (!raceStarted) return;
-            
-            const centerX = track.centerX;
-            const centerY = canvas.height / 2;
-            
-            // Výpočet pozice a úhlu
-            const dx = car.x - centerX;
-            const dy = car.y - centerY;
+
+            // Akcelerace a brždění
+            if (keys['ArrowUp']) {
+                car.speed = Math.min(car.speed + car.acceleration, car.maxSpeed);
+            } else {
+                car.speed = Math.max(car.speed - car.deceleration, 0);
+            }
+
+            if (keys['ArrowDown']) {
+                car.speed = Math.max(car.speed - car.brake, 0);
+            }
+
+            // Řízení je efektivnější při vyšší rychlosti
+            if (car.speed > 0.1) {
+                const turnModifier = 0.6 + (car.speed / car.maxSpeed) * 0.4;
+                if (keys['ArrowLeft']) {
+                    car.angle -= car.turnSpeed * turnModifier;
+                }
+                if (keys['ArrowRight']) {
+                    car.angle += car.turnSpeed * turnModifier;
+                }
+            }
+
+            // Pohyb auta
+            car.x += Math.sin(car.angle) * car.speed;
+            car.y -= Math.cos(car.angle) * car.speed;
+
+            const carCenterX = car.x + car.width / 2;
+            const carCenterY = car.y + car.height / 2;
+            const dx = carCenterX - track.centerX;
+            const dy = carCenterY - canvas.height / 2;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            const currentAngle = Math.atan2(dy, dx);
-            
-            // Kontrola, zda je auto na trati
-            if (distance < track.innerRadius - 20 || distance > track.outerRadius - 10) {
+
+            if (distance < track.innerRadius + 15 || distance > track.outerRadius - 20) {
                 crash();
                 return;
             }
-            
-            // Akcelerace
-            if (car.speed < car.maxSpeed) {
-                car.speed += car.acceleration;
-            }
-            
-            // Pohyb po kruhu
-            car.angle = currentAngle + Math.PI / 2;
-            const newAngle = currentAngle + (car.speed * 0.01);
-            
-            const radius = track.innerRadius + track.roadWidth / 2;
-            car.x = centerX + Math.cos(newAngle) * radius - car.width / 2;
-            car.y = centerY + Math.sin(newAngle) * radius - car.height / 2;
-            
-            // Kontrola checkpointů
-            checkCheckpoints(newAngle);
+
+            const trackAngle = Math.atan2(dy, dx);
+            checkCheckpoints(trackAngle);
         }
-        
+
         function checkCheckpoints(angle) {
             const normalizedAngle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-            
-            checkpoints.forEach((checkpoint, index) => {
+
+            checkpoints.forEach((checkpoint) => {
                 const checkAngle = ((checkpoint.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
                 const diff = Math.abs(normalizedAngle - checkAngle);
-                
-                if (diff < 0.2 && !checkpoint.passed) {
+                const shortestDiff = Math.min(diff, Math.PI * 2 - diff);
+
+                if (shortestDiff < 0.25 && !checkpoint.passed) {
                     checkpoint.passed = true;
                     checkpointsPassed++;
-                    
-                    if (checkpointsPassed === 4) {
-                        lap++;
-                        checkpointsPassed = 0;
-                        initCheckpoints();
-                        document.getElementById('lap').textContent = lap;
-                        
-                        if (lap > 3) {
+
+                    if (checkpointsPassed === checkpoints.length) {
+                        if (lap === 3) {
                             finishRace();
+                        } else {
+                            lap++;
+                            checkpointsPassed = 0;
+                            initCheckpoints();
+                            document.getElementById('lap').textContent = lap;
                         }
                     }
                 }
             });
         }
-        
+
         function updateStats() {
             if (raceStarted) {
                 time += 0.016;
                 document.getElementById('time').textContent = time.toFixed(2);
-                document.getElementById('speed').textContent = Math.floor(car.speed * 20);
+                document.getElementById('speed').textContent = Math.round(car.speed * 35);
+                speedTotal += car.speed;
+                speedSamples++;
             }
         }
         
@@ -378,7 +404,9 @@
             gameRunning = false;
             raceStarted = false;
             document.getElementById('finalTime').textContent = time.toFixed(2);
-            document.getElementById('avgSpeed').textContent = Math.floor((car.speed * 20 + 80) / 2);
+            const averageSpeed = speedSamples ? Math.round((speedTotal / speedSamples) * 35) : 0;
+            document.getElementById('avgSpeed').textContent = averageSpeed;
+            document.getElementById('lap').textContent = '3';
             document.getElementById('finished').style.display = 'block';
         }
         
@@ -423,17 +451,17 @@
             time = 0;
             lap = 1;
             checkpointsPassed = 0;
+            speedTotal = 0;
+            speedSamples = 0;
             car.speed = 0;
-            car.x = canvas.width / 2 - 25;
-            car.y = canvas.height - 150;
-            car.angle = 0;
-            
+            positionCarAtStart();
+
             document.getElementById('gameOver').style.display = 'none';
             document.getElementById('finished').style.display = 'none';
             document.getElementById('time').textContent = '0.00';
             document.getElementById('lap').textContent = '1';
             document.getElementById('speed').textContent = '0';
-            
+
             initCheckpoints();
             startCountdown();
             gameLoop();
@@ -447,14 +475,19 @@
         const keys = {};
         
         document.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
             keys[e.key] = true;
         });
-        
+
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
         });
-        
-        // Počáteční vykreslení
+
+        // Počáteční nastavení
+        positionCarAtStart();
+        initCheckpoints();
         draw();
     </script>
 </body>
