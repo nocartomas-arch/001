@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Street Fighter Lite</title>
+<style>
+  body{margin:0;background:#111;color:#fff;font-family:Segoe UI}
+  #ui{position:fixed;top:8px;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:6px 10px}
+  .bar{height:18px;background:#444;border-radius:10px;overflow:hidden;border:1px solid #777;width:40%}
+  .hp{height:100%;background:linear-gradient(90deg,#ff5252,#ffb74d)}
+  canvas{display:block;margin:40px auto;background:#23303a;box-shadow:0 0 30px #00ffdd55}
+</style>
+</head>
+<body>
+<div id="ui">
+  <div class="bar"><div id="hp1" class="hp" style="width:100%"></div></div>
+  <div>👊 A/D pohyb • W skok • J úder • K kop</div>
+  <div class="bar"><div id="hp2" class="hp" style="width:100%;background:linear-gradient(90deg,#69f0ae,#00bfa5)"></div></div>
+</div>
+<canvas id="c" width="980" height="520"></canvas>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');
+const g=0.8, floor=420, keys={}; addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true); addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+const sfx={hit:new Audio(), ko:new Audio()}; Object.values(sfx).forEach(a=>a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAAA==');
+
+function fighter(x0,color,side){
+  return {x:x0,y:floor-80,w:50,h:80, vx:0,vy:0, face:side, hp:100, atk:0, stun:0, ai:side==='right'}
+}
+const p1=fighter(200,'#ff7043','left'), p2=fighter(720,'#26c6da','right');
+
+function rect(a,b){return !(a.x+a.w<b.x || a.x>b.x+b.w || a.y+a.h<b.y || a.y>b.y+b.h)}
+
+function control(f){
+  if(f.ai){ // jednoduché AI
+    const t=p1; const dist=t.x-f.x; f.face=dist>0?'right':'left';
+    if(Math.abs(dist)>120) f.vx=dist>0?2.2:-2.2; else f.vx=0;
+    if(Math.random()<.02 && f.stun<=0) attack(f, Math.random()<.5?'j':'k');
+    if(Math.random()<.01 && f.y>=floor-f.h-1) f.vy=-12;
+  } else {
+    f.vx=(keys['d']?2.8:0)-(keys['a']?2.8:0);
+    if(keys['w'] && f.y>=floor-f.h-1) f.vy=-12;
+    if(keys['j']) attack(f,'j');
+    if(keys['k']) attack(f,'k');
+    f.face=f.vx>0?'right':(f.vx<0?'left':f.face);
+  }
+}
+function attack(f,type){
+  if(f.atk>0||f.stun>0) return;
+  f.atk = type==='j'? 160 : 220; // punch / kick
+}
+function apply(f,other,dt){
+  f.vy+=g; f.x+=f.vx; f.y+=f.vy;
+  if(f.y>floor-f.h){ f.y=floor-f.h; f.vy=0;}
+  // arena bounds
+  f.x=Math.max(40, Math.min(c.width-90, f.x));
+  if(f.atk>0){ f.atk-=dt;
+    // hitbox
+    const hb={x:f.face==='right'?f.x+f.w: f.x-30, y:f.y+20, w:30, h:24};
+    if(rect(hb,other) && other.stun<=0){
+      other.hp=Math.max(0, other.hp-(f.atk>180?14:8)); other.stun=220;
+      sfx.hit.currentTime=0; sfx.hit.play().catch(()=>{});
+    }
+  }
+  if(f.stun>0) f.stun-=dt;
+}
+function draw(){
+  // stage
+  x.fillStyle='#2b404b'; x.fillRect(0,0,c.width,c.height);
+  // ground
+  x.fillStyle='#15252c'; x.fillRect(0,floor,c.width,100);
+  // fighters
+  [p1,p2].forEach(f=>{
+    x.save(); if(f.face==='right'){ x.translate(f.x,f.y); } else { x.translate(f.x+f.w,f.y); x.scale(-1,1); }
+    x.fillStyle='#222'; x.fillRect(10,66,30,12); // shadow feet
+    x.fillStyle=f===p1?'#ff7043':'#26c6da';
+    x.fillRect(0,0,f.w,f.h);
+    // head
+    x.fillStyle='#ffe0b2'; x.fillRect(10,-18,28,20);
+    // arm swing when attacking
+    if(f.atk>0){ x.fillStyle='#ffe0b2'; x.fillRect(f.w-6,22,18,10); }
+    x.restore();
+  });
+  // UI HP
+  document.getElementById('hp1').style.width=p1.hp+'%';
+  document.getElementById('hp2').style.width=p2.hp+'%';
+  if(p1.hp<=0 || p2.hp<=0){
+    x.fillStyle='rgba(0,0,0,.6)'; x.fillRect(0,0,c.width,c.height);
+    x.fillStyle='#fff'; x.font='bold 42px Segoe UI';
+    x.fillText((p1.hp<=0?'Player 2':'Player 1')+' vyhrál! Enter pro restart', 160, 240);
+    return true;
+  }
+  return false;
+}
+let last=0; function loop(ts){const dt=ts-last; last=ts;
+  control(p1); control(p2);
+  apply(p1,p2,dt); apply(p2,p1,dt);
+  if(!draw()) requestAnimationFrame(loop);
+}
+addEventListener('keydown',e=>{ if((p1.hp<=0||p2.hp<=0)&&e.key==='Enter'){ Object.assign(p1,{x:200,y:floor-80,hp:100,stun:0,atk:0}); Object.assign(p2,{x:720,y:floor-80,hp:100,stun:0,atk:0}); last=0; requestAnimationFrame(loop);} });
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
