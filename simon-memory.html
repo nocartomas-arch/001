@@ -1,0 +1,70 @@
+<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Simon Memory</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,Segoe UI,Arial;background:radial-gradient(#222,#000);color:#fff}
+  .wrap{text-align:center}
+  h1{margin:0 0 10px}
+  .board{display:grid;grid-template-columns:repeat(2,160px);grid-template-rows:repeat(2,160px);
+         gap:16px;margin:20px auto}
+  .pad{width:160px;height:160px;border-radius:16px;box-shadow:0 0 25px #000 inset,0 8px 20px #0005;cursor:pointer;transition:.08s}
+  .pad.red{background:#d04444}.pad.green{background:#2faa3a}.pad.blue{background:#2977ff}.pad.yellow{background:#d0b136}
+  .pad.active{filter:brightness(1.5)}
+  .panel{margin-top:10px;display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap}
+  button{padding:10px 16px;border:0;border-radius:10px;font-weight:700;cursor:pointer;background:#667eea;color:#fff}
+  .stat{background:#111;border-radius:10px;padding:8px 12px}
+</style></head><body>
+<div class="wrap">
+  <h1>🎵 Simon Memory</h1>
+  <p>Opakuj sekvenci blikajících polí. Klikni na <b>Start</b>.</p>
+  <div class="board" id="board">
+    <div class="pad green"  data-id="0" aria-label="zelená"></div>
+    <div class="pad red"    data-id="1" aria-label="červená"></div>
+    <div class="pad yellow" data-id="2" aria-label="žlutá"></div>
+    <div class="pad blue"   data-id="3" aria-label="modrá"></div>
+  </div>
+  <div class="panel">
+    <button id="startBtn">▶️ Start</button>
+    <div class="stat">Úroveň: <b id="level">0</b></div>
+    <div class="stat">Skóre: <b id="score">0</b></div>
+  </div>
+</div>
+<script>
+  const pads=[...document.querySelectorAll('.pad')];
+  const startBtn=document.getElementById('startBtn');
+  const levelEl=document.getElementById('level'); const scoreEl=document.getElementById('score');
+  let sequence=[],inputIndex=0,level=0,score=0,locked=false;
+
+  function flash(id,dur=400){const p=pads[id];p.classList.add('active');setTimeout(()=>p.classList.remove('active'),dur);}
+  async function playSequence(){
+    locked=true;
+    for(const id of sequence){flash(id);await wait(520);}
+    locked=false; inputIndex=0;
+  }
+  function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+  function nextStep(){
+    sequence.push(Math.floor(Math.random()*4));
+    level++; levelEl.textContent=level;
+    playSequence();
+  }
+  function reset(){
+    sequence=[]; inputIndex=0; level=0; score=0;
+    levelEl.textContent='0'; scoreEl.textContent='0';
+  }
+  pads.forEach(p=>p.addEventListener('click',()=>{
+    if(locked||sequence.length===0) return;
+    const id=Number(p.dataset.id); flash(id,200);
+    if(id===sequence[inputIndex]){
+      inputIndex++;
+      if(inputIndex===sequence.length){
+        score+=level*10; scoreEl.textContent=score;
+        setTimeout(nextStep,500);
+      }
+    }else{
+      alert(`Špatně! Konec hry. Finální skóre: ${score}`);
+      reset();
+    }
+  }));
+  startBtn.addEventListener('click',()=>{reset(); nextStep();});
+</script></body></html>
+
