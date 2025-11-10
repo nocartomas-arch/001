@@ -57,7 +57,9 @@
         const ctx = canvas.getContext('2d');
         
         let score = 0, gameRunning = true;
-        const player = {x: canvas.width / 2 - 25, y: canvas.height - 150, width: 50, height: 50, dy: 0, dx: 0, gravity: 0.5, jumpPower: -15};
+        const player = {x: canvas.width / 2 - 25, y: canvas.height - 150, width: 50, height: 50, dy: 0, dx: 0, gravity: 0.35, jumpPower: -12};
+        const MOVE_SPEED = 4;
+        const MAX_FALL_SPEED = 12;
         let platforms = [], cameraY = 0;
         
         function createPlatform(y) {
@@ -138,12 +140,17 @@
         function update() {
             if (!gameRunning) return;
             
+            if (keys['ArrowLeft']) player.dx = -MOVE_SPEED;
+            else if (keys['ArrowRight']) player.dx = MOVE_SPEED;
+            else player.dx = 0;
+
             player.dy += player.gravity;
+            if (player.dy > MAX_FALL_SPEED) player.dy = MAX_FALL_SPEED;
             player.y += player.dy;
             player.x += player.dx;
-            
+
             // Walls
-            if (player.x < 0) player.x = canvas.width;
+            if (player.x + player.width < 0) player.x = canvas.width - player.width;
             if (player.x > canvas.width) player.x = 0;
             
             // Camera
@@ -163,7 +170,10 @@
                     if (p.type === 'break' && !p.broken) {
                         p.broken = true;
                         setTimeout(() => platforms = platforms.filter(pl => pl !== p), 200);
-                    } else if (!p.broken) {
+                    }
+
+                    if (!p.broken) {
+                        player.y = p.y - player.height;
                         player.dy = player.jumpPower;
                     }
                 }
@@ -216,12 +226,6 @@
         const keys = {};
         document.addEventListener('keydown', (e) => { keys[e.key] = true; });
         document.addEventListener('keyup', (e) => { keys[e.key] = false; });
-        
-        setInterval(() => {
-            if (keys['ArrowLeft']) player.dx = -5;
-            else if (keys['ArrowRight']) player.dx = 5;
-            else player.dx = 0;
-        }, 16);
         
         initPlatforms();
         gameLoop();
