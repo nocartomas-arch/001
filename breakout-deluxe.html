@@ -1,1 +1,237 @@
-
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout Deluxe</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        #gameContainer { text-align: center; }
+        h1 { color: #FFD700; font-size: 3em; margin-bottom: 10px; text-shadow: 0 0 20px #FFD700; }
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .stat {
+            background: linear-gradient(135deg, #7e22ce, #1e3c72);
+            color: #FFD700;
+            padding: 12px 25px;
+            border-radius: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            border: 3px solid #FFD700;
+        }
+        #gameCanvas {
+            border: 5px solid #FFD700;
+            background: #000;
+            display: block;
+            margin: 20px auto;
+            cursor: none;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background: #FFD700;
+            color: #1e3c72;
+            border: none;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        button:hover { background: #FFA500; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🎯 BREAKOUT DELUXE 🎯</h1>
+        <div id="stats">
+            <div class="stat">💎 <span id="score">0</span></div>
+            <div class="stat">❤️ <span id="lives">3</span></div>
+            <div class="stat">📊 L<span id="level">1</span></div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div style="color: #FFD700; margin: 15px;">🖱️ Myš = ovládání</div>
+        <button onclick="restart()">🔄 RESTART</button>
+        <button onclick="window.location.href='index.html'">🏠 MENU</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let score = 0, lives = 3, level = 1, gameRunning = true;
+        const paddle = {x: canvas.width / 2 - 60, y: canvas.height - 30, width: 120, height: 15};
+        const ball = {x: canvas.width / 2, y: canvas.height - 50, radius: 8, dx: 4, dy: -4};
+        let bricks = [], powerups = [];
+        
+        const brickColors = ['#FF0000', '#FF8C00', '#FFD700', '#00FF00', '#00BFFF'];
+        
+        function createBricks() {
+            bricks = [];
+            const rows = 5 + level, cols = 10, w = 70, h = 20, pad = 5;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const type = r < 2 ? 'metal' : Math.random() < 0.1 ? 'explosive' : 'normal';
+                    bricks.push({
+                        x: 35 + c * (w + pad),
+                        y: 60 + r * (h + pad),
+                        width: w,
+                        height: h,
+                        color: brickColors[r % 5],
+                        hits: type === 'metal' ? 3 : 1,
+                        type: type,
+                        visible: true
+                    });
+                }
+            }
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Bricks
+            bricks.forEach(b => {
+                if (b.visible) {
+                    ctx.fillStyle = b.type === 'metal' ? '#808080' : b.type === 'explosive' ? '#FF1493' : b.color;
+                    ctx.fillRect(b.x, b.y, b.width, b.height);
+                    ctx.strokeStyle = '#fff';
+                    ctx.strokeRect(b.x, b.y, b.width, b.height);
+                    if (b.hits > 1) {
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '14px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(b.hits, b.x + b.width / 2, b.y + b.height / 2 + 5);
+                    }
+                }
+            });
+            
+            // Paddle
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+            
+            // Ball
+            ctx.fillStyle = '#FF1493';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Powerups
+            powerups.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 20, 20);
+            });
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) ball.dx *= -1;
+            if (ball.y - ball.radius < 0) ball.dy *= -1;
+            
+            if (ball.y + ball.radius > paddle.y && ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+                ball.dy = -Math.abs(ball.dy);
+                ball.dx = (ball.x - (paddle.x + paddle.width / 2)) * 0.2;
+            }
+            
+            if (ball.y > canvas.height) {
+                lives--;
+                document.getElementById('lives').textContent = lives;
+                if (lives <= 0) {
+                    alert('Game Over! Skóre: ' + score);
+                    restart();
+                } else {
+                    ball.x = canvas.width / 2;
+                    ball.y = canvas.height - 50;
+                    ball.dx = 4;
+                    ball.dy = -4;
+                }
+            }
+            
+            bricks.forEach(b => {
+                if (b.visible && ball.x + ball.radius > b.x && ball.x - ball.radius < b.x + b.width &&
+                    ball.y + ball.radius > b.y && ball.y - ball.radius < b.y + b.height) {
+                    ball.dy *= -1;
+                    b.hits--;
+                    if (b.hits <= 0) {
+                        b.visible = false;
+                        score += 10;
+                        document.getElementById('score').textContent = score;
+                        
+                        if (b.type === 'explosive') {
+                            bricks.forEach(nb => {
+                                if (nb.visible && Math.abs(nb.x - b.x) < 100 && Math.abs(nb.y - b.y) < 50) {
+                                    nb.visible = false;
+                                    score += 5;
+                                }
+                            });
+                        }
+                        
+                        if (Math.random() < 0.2) {
+                            powerups.push({x: b.x, y: b.y, dy: 2, color: '#00FF00'});
+                        }
+                    }
+                }
+            });
+            
+            powerups.forEach((p, i) => {
+                p.y += p.dy;
+                if (p.y > paddle.y && p.x > paddle.x && p.x < paddle.x + paddle.width) {
+                    paddle.width = Math.min(paddle.width + 20, 200);
+                    powerups.splice(i, 1);
+                }
+                if (p.y > canvas.height) powerups.splice(i, 1);
+            });
+            
+            if (bricks.every(b => !b.visible)) {
+                level++;
+                document.getElementById('level').textContent = level;
+                createBricks();
+                ball.x = canvas.width / 2;
+                ball.y = canvas.height - 50;
+            }
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function restart() {
+            score = 0;
+            lives = 3;
+            level = 1;
+            paddle.width = 120;
+            document.getElementById('score').textContent = '0';
+            document.getElementById('lives').textContent = '3';
+            document.getElementById('level').textContent = '1';
+            createBricks();
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height - 50;
+        }
+        
+        canvas.addEventListener('mousemove', (e) => {
+            paddle.x = e.clientX - canvas.getBoundingClientRect().left - paddle.width / 2;
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+        });
+        
+        createBricks();
+        gameLoop();
+    </script>
+</body>
+</html>
