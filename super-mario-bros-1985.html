@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Mario Bros. (1985)</title>
+    <style>
+        :root {
+            --sky: #66c6ff;
+            --ground: #b46028;
+            --ground-top: #e0913a;
+            --question: #f6b83f;
+            --block: #c0904f;
+            --pipe: #1ba744;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            background: linear-gradient(#9ad3ff, #7cc0ff 60%, #4ca0ff);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 24px;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+            text-shadow: 3px 3px 0 #1f4a91;
+        }
+        #hud {
+            width: 960px;
+            max-width: 100%;
+            display: flex;
+            justify-content: space-between;
+            background: rgba(6, 38, 92, 0.85);
+            border: 4px solid #fff;
+            border-radius: 12px;
+            padding: 14px 20px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+            margin-bottom: 18px;
+        }
+        .hud-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 14px;
+        }
+        canvas {
+            width: 960px;
+            max-width: 100%;
+            border: 6px solid #fff;
+            border-radius: 18px;
+            background: var(--sky);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+        }
+        #overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 20;
+            text-align: center;
+            padding: 20px;
+        }
+        #overlay.active {
+            display: flex;
+        }
+        #overlay .panel {
+            background: rgba(14, 24, 56, 0.95);
+            border: 4px solid white;
+            border-radius: 16px;
+            padding: 40px 60px;
+            max-width: 520px;
+        }
+        #overlay h2 {
+            font-size: 28px;
+            margin-bottom: 16px;
+        }
+        #overlay p {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        @media (max-width: 1024px) {
+            body {
+                padding: 14px;
+            }
+            h1 {
+                font-size: 20px;
+            }
+            #hud {
+                font-size: 12px;
+                padding: 12px 16px;
+            }
+            #overlay .panel {
+                padding: 30px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Super Mario Bros. – svět 1-1 (1985)</h1>
+    <div id="hud">
+        <div class="hud-group">
+            <div>MARIO</div>
+            <div id="score">000000</div>
+        </div>
+        <div class="hud-group">
+            <div>MĚNA</div>
+            <div id="coins">×00</div>
+        </div>
+        <div class="hud-group">
+            <div>SVĚT</div>
+            <div>1-1</div>
+        </div>
+        <div class="hud-group">
+            <div>ČAS</div>
+            <div id="time">400</div>
+        </div>
+    </div>
+    <canvas id="game" width="960" height="540"></canvas>
+    <div id="overlay">
+        <div class="panel">
+            <h2 id="overlayTitle"></h2>
+            <p id="overlayText"></p>
+            <p style="margin-top: 20px;">Stiskni <strong>Enter</strong> pro restart.</p>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const coinsEl = document.getElementById('coins');
+        const timeEl = document.getElementById('time');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlayText = document.getElementById('overlayText');
+
+        const world = {
+            gravity: 0.6,
+            friction: 0.85,
+            speedLimit: 6,
+            timeLeft: 400,
+            running: true,
+            lastTick: performance.now(),
+        };
+
+        const player = {
+            x: 120,
+            y: 320,
+            width: 28,
+            height: 32,
+            vx: 0,
+            vy: 0,
+            speed: 0.45,
+            jump: 13,
+            grounded: false,
+            facing: 1,
+            state: 'idle',
+            invincibleTimer: 0,
+        };
+
+        const camera = {
+            x: 0,
+            target: 0,
+            width: canvas.width,
+            height: canvas.height,
+        };
+
+        const keys = {};
+
+        const clouds = [
+            { x: 120, y: 80 },
+            { x: 520, y: 60 },
+            { x: 860, y: 100 },
+            { x: 1240, y: 70 },
+            { x: 1560, y: 90 }
+        ];
+
+        const hills = [
+            { x: 60, height: 100 },
+            { x: 420, height: 140 },
+            { x: 900, height: 110 },
+            { x: 1320, height: 150 },
+        ];
+
+        const platforms = [];
+        const questionBlocks = [];
+        const bricks = [];
+        const pipes = [];
+        const coins = [];
+        const enemies = [];
+
+        const flag = { x: 1760, y: 220, height: 220, reached: false };
+
+        function createLevel() {
+            // Ground
+            for (let i = 0; i < 120; i++) {
+                platforms.push({
+                    x: i * 32,
+                    y: 420,
+                    width: 32,
+                    height: 120,
+                    type: 'ground'
+                });
+            }
+
+            // Floating bricks and question blocks inspired by 1-1
+            const blockRow = [
+                { x: 320, type: 'question' },
+                { x: 352, type: 'brick' },
+                { x: 384, type: 'question' },
+                { x: 416, type: 'brick' },
+                { x: 448, type: 'question' }
+            ];
+            blockRow.forEach((block) => {
+                if (block.type === 'question') {
+                    questionBlocks.push({ x: block.x, y: 300, width: 32, height: 32, used: false, coin: true });
+                } else {
+                    bricks.push({ x: block.x, y: 300, width: 32, height: 32, broken: false });
+                }
+            });
+
+            questionBlocks.push({ x: 544, y: 280, width: 32, height: 32, used: false, coin: false, powerUp: true });
+            bricks.push({ x: 512, y: 280, width: 32, height: 32, broken: false });
+            bricks.push({ x: 576, y: 280, width: 32, height: 32, broken: false });
+
+            // Small staircase
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j <= i; j++) {
+                    bricks.push({ x: 860 + i * 32, y: 388 - j * 32, width: 32, height: 32, broken: false });
+                }
+            }
+
+            // Pipes
+            pipes.push({ x: 640, y: 356, width: 64, height: 64 });
+            pipes.push({ x: 820, y: 324, width: 64, height: 96 });
+            pipes.push({ x: 1080, y: 324, width: 64, height: 96 });
+
+            // Goombas
+            enemies.push(createGoomba(460, 388));
+            enemies.push(createGoomba(900, 388));
+            enemies.push(createGoomba(1200, 388));
+
+            // Floating coins
+            coins.push({ x: 700, y: 260, collected: false });
+            coins.push({ x: 740, y: 220, collected: false });
+            coins.push({ x: 780, y: 260, collected: false });
+        }
+
+        function createGoomba(x, y) {
+            return { x, y, width: 28, height: 28, vx: -1, alive: true, squashTimer: 0 };
+        }
+
+        function rectsCollide(a, b) {
+            return a.x < b.x + b.width &&
+                   a.x + a.width > b.x &&
+                   a.y < b.y + b.height &&
+                   a.y + a.height > b.y;
+        }
+
+        function resetGame() {
+            platforms.length = 0;
+            questionBlocks.length = 0;
+            bricks.length = 0;
+            pipes.length = 0;
+            coins.length = 0;
+            enemies.length = 0;
+            flag.reached = false;
+
+            Object.assign(player, {
+                x: 120,
+                y: 320,
+                vx: 0,
+                vy: 0,
+                grounded: false,
+                state: 'idle',
+                invincibleTimer: 0,
+            });
+
+            world.timeLeft = 400;
+            world.running = true;
+            world.lastTick = performance.now();
+            scoreEl.textContent = '000000';
+            coinsEl.textContent = '\u00d700';
+            overlay.classList.remove('active');
+
+            createLevel();
+        }
+
+        function updateHUD() {
+            scoreEl.textContent = world.score.toString().padStart(6, '0');
+            coinsEl.textContent = `\u00d7${world.coins.toString().padStart(2, '0')}`;
+            timeEl.textContent = Math.max(0, Math.floor(world.timeLeft)).toString().padStart(3, '0');
+        }
+
+        function showOverlay(title, text) {
+            overlayTitle.textContent = title;
+            overlayText.textContent = text;
+            overlay.classList.add('active');
+        }
+
+        function update(delta) {
+            if (!world.running) return;
+
+            world.timeLeft -= delta / 1000;
+            if (world.timeLeft <= 0) {
+                world.timeLeft = 0;
+                gameOver('Došel ti čas!');
+            }
+
+            if (player.invincibleTimer > 0) {
+                player.invincibleTimer -= delta;
+            }
+
+            const accel = (keys['ArrowRight'] || keys['d']) ? player.speed :
+                (keys['ArrowLeft'] || keys['a']) ? -player.speed : 0;
+            player.vx += accel * delta * 0.12;
+
+            if (!accel) {
+                player.vx *= world.friction;
+            }
+            player.vx = Math.max(-world.speedLimit, Math.min(world.speedLimit, player.vx));
+
+            if ((keys['ArrowUp'] || keys['w'] || keys[' ']) && player.grounded) {
+                player.vy = -player.jump;
+                player.grounded = false;
+            }
+
+            player.vy += world.gravity;
+            if (player.vy > 18) player.vy = 18;
+
+            player.x += player.vx;
+            handleCollisions(player, player.vx, 0);
+            player.y += player.vy;
+            handleCollisions(player, 0, player.vy);
+
+            player.state = Math.abs(player.vx) > 0.3 ? 'run' : 'idle';
+            if (!player.grounded) player.state = 'jump';
+            if (player.vx !== 0) player.facing = Math.sign(player.vx);
+
+            camera.target = Math.max(0, player.x - canvas.width / 3);
+            camera.x += (camera.target - camera.x) * 0.1;
+
+            enemies.forEach(updateGoomba);
+            coins.forEach(checkCoinCollection);
+
+            if (player.y > canvas.height) {
+                gameOver('Spadl jsi mimo úroveň!');
+            }
+
+            if (!flag.reached && player.x + player.width >= flag.x) {
+                flag.reached = true;
+                world.score += 5000;
+                updateHUD();
+                win();
+            }
+        }
+
+        function updateGoomba(enemy) {
+            if (!enemy.alive) {
+                enemy.squashTimer -= 16;
+                if (enemy.squashTimer <= 0) {
+                    enemy.remove = true;
+                }
+                return;
+            }
+
+            enemy.x += enemy.vx;
+
+            const groundRect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height };
+            let onGround = false;
+            platforms.forEach((platform) => {
+                if (rectsCollide({ x: enemy.x, y: enemy.y + 1, width: enemy.width, height: enemy.height }, platform)) {
+                    onGround = true;
+                }
+            });
+            if (!onGround) {
+                enemy.vx *= -1;
+            }
+
+            bricks.concat(questionBlocks).forEach((block) => {
+                if (rectsCollide(groundRect, block)) {
+                    enemy.vx *= -1;
+                }
+            });
+
+            pipes.forEach((pipe) => {
+                if (rectsCollide(groundRect, pipe)) {
+                    enemy.vx *= -1;
+                }
+            });
+
+            if (rectsCollide(player, enemy)) {
+                if (player.vy > 0 && player.y + player.height - enemy.y < 14) {
+                    enemy.alive = false;
+                    enemy.squashTimer = 400;
+                    world.score += 100;
+                    player.vy = -9;
+                    updateHUD();
+                } else if (player.invincibleTimer <= 0) {
+                    loseLife();
+                }
+            }
+        }
+
+        function checkCoinCollection(coin) {
+            if (!coin.collected) {
+                const coinRect = { x: coin.x, y: coin.y, width: 18, height: 18 };
+                if (rectsCollide(player, coinRect)) {
+                    coin.collected = true;
+                    world.coins += 1;
+                    world.score += 200;
+                    updateHUD();
+                }
+            }
+        }
+
+        function handleCollisions(entity, vx, vy) {
+            entity.grounded = false;
+            const rect = { x: entity.x, y: entity.y, width: entity.width, height: entity.height };
+
+            platforms.forEach((platform) => resolveCollision(rect, platform, entity, vx, vy));
+            bricks.forEach((brick) => resolveBlockCollision(rect, brick, entity, vx, vy));
+            questionBlocks.forEach((block) => resolveQuestionBlock(rect, block, entity, vx, vy));
+            pipes.forEach((pipe) => resolveCollision(rect, pipe, entity, vx, vy));
+
+            entity.x = rect.x;
+            entity.y = rect.y;
+        }
+
+        function resolveCollision(rect, block, entity, vx, vy) {
+            if (!rectsCollide(rect, block)) return;
+
+            if (vy > 0 && rect.y + rect.height - block.y < 18) {
+                rect.y = block.y - rect.height;
+                entity.vy = 0;
+                entity.grounded = true;
+            } else if (vy < 0 && block.y + block.height - rect.y < 20) {
+                rect.y = block.y + block.height;
+                entity.vy = 0.5;
+            } else if (vx > 0) {
+                rect.x = block.x - rect.width;
+                entity.vx = 0;
+            } else if (vx < 0) {
+                rect.x = block.x + block.width;
+                entity.vx = 0;
+            }
+        }
+
+        function resolveBlockCollision(rect, brick, entity, vx, vy) {
+            if (brick.broken) return;
+            const blockRect = { x: brick.x, y: brick.y, width: brick.width, height: brick.height };
+            if (!rectsCollide(rect, blockRect)) return;
+
+            if (vy > 0 && rect.y + rect.height - blockRect.y < 18) {
+                rect.y = blockRect.y - rect.height;
+                entity.vy = 0;
+                entity.grounded = true;
+            } else if (vy < 0 && blockRect.y + blockRect.height - rect.y < 20) {
+                rect.y = blockRect.y + blockRect.height;
+                entity.vy = 0.5;
+                brick.broken = true;
+                world.score += 50;
+                updateHUD();
+            } else if (vx !== 0) {
+                if (vx > 0) {
+                    rect.x = blockRect.x - rect.width;
+                } else {
+                    rect.x = blockRect.x + blockRect.width;
+                }
+                entity.vx = 0;
+            }
+        }
+
+        function resolveQuestionBlock(rect, block, entity, vx, vy) {
+            const blockRect = { x: block.x, y: block.y, width: block.width, height: block.height };
+            if (!rectsCollide(rect, blockRect)) return;
+
+            if (vy > 0 && rect.y + rect.height - blockRect.y < 18) {
+                rect.y = blockRect.y - rect.height;
+                entity.vy = 0;
+                entity.grounded = true;
+            } else if (vy < 0 && blockRect.y + blockRect.height - rect.y < 20) {
+                rect.y = blockRect.y + blockRect.height;
+                entity.vy = 0.5;
+                if (!block.used) {
+                    block.used = true;
+                    if (block.coin) {
+                        world.coins += 1;
+                        world.score += 200;
+                    }
+                    if (block.powerUp) {
+                        world.score += 1000;
+                        player.invincibleTimer = 4000;
+                    }
+                    updateHUD();
+                }
+            } else if (vx !== 0) {
+                if (vx > 0) {
+                    rect.x = blockRect.x - rect.width;
+                } else {
+                    rect.x = blockRect.x + blockRect.width;
+                }
+                entity.vx = 0;
+            }
+        }
+
+        function drawBackground() {
+            ctx.save();
+            ctx.translate(-camera.x, 0);
+
+            // Sky already via canvas background, draw clouds
+            clouds.forEach((cloud) => {
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.ellipse(cloud.x, cloud.y, 40, 18, 0, 0, Math.PI * 2);
+                ctx.ellipse(cloud.x + 30, cloud.y + 10, 34, 16, 0, 0, Math.PI * 2);
+                ctx.ellipse(cloud.x - 30, cloud.y + 10, 34, 16, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            hills.forEach((hill) => {
+                ctx.fillStyle = '#3bb347';
+                ctx.beginPath();
+                ctx.moveTo(hill.x - 120, 420);
+                ctx.lineTo(hill.x, 420 - hill.height);
+                ctx.lineTo(hill.x + 120, 420);
+                ctx.closePath();
+                ctx.fill();
+            });
+
+            ctx.fillStyle = varGroundGradient();
+            ctx.fillRect(camera.x - 20, 420, canvas.width + 40, 120);
+            ctx.fillStyle = 'rgba(255,255,255,0.12)';
+            for (let i = Math.floor(camera.x / 32) * 32; i < camera.x + canvas.width; i += 32) {
+                ctx.fillRect(i, 420, 16, 4);
+            }
+            ctx.restore();
+        }
+
+        function varGroundGradient() {
+            const gradient = ctx.createLinearGradient(0, 420, 0, 520);
+            gradient.addColorStop(0, varGet('--ground-top'));
+            gradient.addColorStop(1, varGet('--ground'));
+            return gradient;
+        }
+
+        function varGet(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name);
+        }
+
+        function drawBlocks() {
+            ctx.save();
+            ctx.translate(-camera.x, 0);
+
+            bricks.forEach((brick) => {
+                if (brick.broken) return;
+                ctx.fillStyle = varGet('--block');
+                ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                ctx.strokeStyle = '#8b5a2b';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
+                ctx.fillStyle = '#7a4a1a';
+                ctx.fillRect(brick.x + 6, brick.y + 6, brick.width - 12, brick.height - 12);
+            });
+
+            questionBlocks.forEach((block) => {
+                ctx.fillStyle = block.used ? '#b3b3b3' : varGet('--question');
+                ctx.fillRect(block.x, block.y, block.width, block.height);
+                ctx.strokeStyle = '#815f2c';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(block.x, block.y, block.width, block.height);
+                if (!block.used) {
+                    ctx.fillStyle = '#5a3400';
+                    ctx.font = '20px "Press Start 2P", monospace';
+                    ctx.fillText('?', block.x + 8, block.y + 24);
+                }
+            });
+
+            pipes.forEach((pipe) => {
+                ctx.fillStyle = varGet('--pipe');
+                ctx.fillRect(pipe.x, pipe.y, pipe.width, pipe.height);
+                ctx.fillRect(pipe.x - 6, pipe.y - 26, pipe.width + 12, 26);
+                ctx.strokeStyle = '#14652a';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(pipe.x, pipe.y, pipe.width, pipe.height);
+                ctx.strokeRect(pipe.x - 6, pipe.y - 26, pipe.width + 12, 26);
+            });
+
+            coins.forEach((coin) => {
+                if (coin.collected) return;
+                ctx.fillStyle = '#ffe066';
+                ctx.beginPath();
+                ctx.ellipse(coin.x, coin.y, 12, 16, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#d9a441';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            });
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(flag.x, flag.y - flag.height, 6, flag.height);
+            ctx.beginPath();
+            ctx.moveTo(flag.x + 6, flag.y - flag.height + 20);
+            ctx.lineTo(flag.x + 66, flag.y - flag.height + 50);
+            ctx.lineTo(flag.x + 6, flag.y - flag.height + 80);
+            ctx.closePath();
+            ctx.fillStyle = flag.reached ? '#ffe066' : '#ff2d2d';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(-camera.x, 0);
+            ctx.fillStyle = player.invincibleTimer > 0 ? '#f9f871' : '#ff3b1d';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.fillStyle = '#3c1c0f';
+            ctx.fillRect(player.x, player.y + 24, player.width, 8);
+            ctx.fillStyle = '#ffd89f';
+            ctx.fillRect(player.x + 6, player.y + 4, 16, 14);
+            ctx.fillStyle = '#1f2a55';
+            ctx.fillRect(player.x + (player.facing === 1 ? 16 : 4), player.y + 10, 4, 4);
+            ctx.restore();
+        }
+
+        function drawEnemies() {
+            ctx.save();
+            ctx.translate(-camera.x, 0);
+            enemies.forEach((enemy) => {
+                if (enemy.remove) return;
+                ctx.fillStyle = enemy.alive ? '#c76b2f' : '#996040';
+                const height = enemy.alive ? enemy.height : enemy.height / 2;
+                ctx.fillRect(enemy.x, enemy.y + (enemy.alive ? 0 : enemy.height / 2), enemy.width, height);
+                if (enemy.alive) {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(enemy.x + 6, enemy.y + 8, 6, 6);
+                    ctx.fillRect(enemy.x + 16, enemy.y + 8, 6, 6);
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(enemy.x + 8, enemy.y + 10, 2, 2);
+                    ctx.fillRect(enemy.x + 18, enemy.y + 10, 2, 2);
+                }
+            });
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+            drawBlocks();
+            drawEnemies();
+            drawPlayer();
+        }
+
+        function loop(timestamp) {
+            const delta = timestamp - world.lastTick;
+            world.lastTick = timestamp;
+            update(delta);
+            draw();
+            updateHUD();
+            requestAnimationFrame(loop);
+        }
+
+        function gameOver(message) {
+            world.running = false;
+            showOverlay('Game Over', `${message} Skóre: ${world.score}`);
+        }
+
+        function win() {
+            world.running = false;
+            showOverlay('Mise splněna!', `Dokonalý zásah vlajky! Skóre: ${world.score}`);
+        }
+
+        function loseLife() {
+            if (player.invincibleTimer > 0) return;
+            player.invincibleTimer = 1200;
+            world.score = Math.max(0, world.score - 500);
+            updateHUD();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if ((e.key === 'ArrowUp' || e.key === ' ') && !e.repeat) {
+                e.preventDefault();
+            }
+            if (e.key === 'Enter' && !world.running) {
+                world.score = 0;
+                world.coins = 0;
+                resetGame();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        world.score = 0;
+        world.coins = 0;
+        resetGame();
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
