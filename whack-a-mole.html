@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Whack-a-Mole</title>
+<style>
+  body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#667eea,#764ba2);font-family:Segoe UI,Arial}
+  .wrap{background:#fff;border-radius:20px;box-shadow:0 20px 60px #0004;padding:24px;text-align:center}
+  .grid{display:grid;grid-template-columns:repeat(3,160px);gap:18px;margin:12px}
+  .hole{width:160px;height:140px;background:#2e7d32;border-radius:16px;position:relative;overflow:hidden;box-shadow:inset 0 -18px 0 #1b5e20}
+  .mole{position:absolute;bottom:-110px;left:50%;transform:translateX(-50%);width:100px;height:110px;background:#6d4c41;border-radius:60px 60px 30px 30px;transition:.15s;cursor:pointer}
+  .hole.active .mole{bottom:0}
+  button{padding:10px 16px;border:0;border-radius:10px;background:#667eea;color:#fff;font-weight:700;cursor:pointer}
+</style></head><body>
+<div class="wrap">
+  <h1>🐹 Whack-a-Mole</h1>
+  <p>Skóre: <b id="score">0</b> | Čas: <b id="time">30</b>s</p>
+  <div class="grid" id="grid"></div>
+  <button id="start">▶️ Start</button>
+</div>
+<script>
+const grid=document.getElementById('grid'); const scoreEl=document.getElementById('score'); const timeEl=document.getElementById('time');
+let holes=[],score=0,time=30,timer,game=false,upTimer;
+
+for(let i=0;i<9;i++){const h=document.createElement('div');h.className='hole';h.innerHTML='<div class="mole"></div>';grid.appendChild(h);holes.push(h);}
+holes.forEach(h=>h.addEventListener('click',e=>{ if(h.classList.contains('active')){score+=10;scoreEl.textContent=score;h.classList.remove('active');}}));
+function randHole(){return holes[Math.floor(Math.random()*holes.length)];}
+function peep(){ if(!game) return; const h=randHole(); h.classList.add('active'); setTimeout(()=>h.classList.remove('active'), 600+Math.random()*400); upTimer=setTimeout(peep, 350+Math.random()*250); }
+function start(){ if(game) return; game=true; score=0; time=30; scoreEl.textContent=0; timeEl.textContent=30; peep(); timer=setInterval(()=>{time--;timeEl.textContent=time;if(time<=0){stop(); alert('Konec! Skóre: '+score);}},1000);}
+function stop(){game=false; clearInterval(timer); clearTimeout(upTimer); holes.forEach(h=>h.classList.remove('active'));}
+document.getElementById('start').onclick=start;
+</script></body></html>
