@@ -3,398 +3,413 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Herní portál - 15 Her</title>
+<title>Herní portál - 25 Her</title>
 <style>
 * {
-margin: 0;
-padding: 0;
-box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-min-height: 100vh;
-padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  min-height: 100vh;
+  padding: 20px;
 }
 
 .container {
-max-width: 1400px;
-margin: 0 auto;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 header {
-text-align: center;
-margin-bottom: 50px;
-animation: fadeInDown 1s ease;
+  text-align: center;
+  margin-bottom: 50px;
+  animation: fadeInDown 1s ease;
 }
 
 h1 {
-font-size: 4em;
-color: white;
-text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
-margin-bottom: 10px;
+  font-size: 4em;
+  color: white;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+  margin-bottom: 10px;
 }
 
 .subtitle {
-font-size: 1.5em;
-color: rgba(255, 255, 255, 0.9);
-text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  font-size: 1.5em;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .search-bar {
-max-width: 600px;
-margin: 30px auto;
-position: relative;
-animation: fadeIn 1.2s ease;
+  max-width: 600px;
+  margin: 30px auto;
+  position: relative;
+  animation: fadeIn 1.2s ease;
 }
 
 .search-bar input {
-width: 100%;
-padding: 15px 50px 15px 20px;
-font-size: 1.1em;
-border: none;
-border-radius: 50px;
-box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-outline: none;
+  width: 100%;
+  padding: 15px 50px 15px 20px;
+  font-size: 1.1em;
+  border: none;
+  border-radius: 50px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  outline: none;
 }
 
 .search-bar::after {
-content: '🔍';
-position: absolute;
-right: 20px;
-top: 50%;
-transform: translateY(-50%);
-font-size: 1.5em;
+  content: '🔍';
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5em;
 }
 
 .games-grid {
-display: grid;
-grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-gap: 30px;
-margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 30px;
+  margin-top: 40px;
 }
 
 .game-card {
-background: white;
-border-radius: 20px;
-overflow: hidden;
-box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-transition: transform 0.3s ease, box-shadow 0.3s ease;
-cursor: pointer;
-animation: fadeInUp 0.6s ease;
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  animation: fadeInUp 0.6s ease;
 }
 
 .game-card:hover {
-transform: translateY(-10px);
-box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+  transform: translateY(-10px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
 }
 
 .game-thumbnail {
-height: 200px;
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 5em;
-position: relative;
-overflow: hidden;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 5em;
+  position: relative;
+  overflow: hidden;
 }
 
 .game-thumbnail::before {
-content: '';
-position: absolute;
-top: -50%;
-left: -50%;
-width: 200%;
-height: 200%;
-background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-animation: rotate 20s linear infinite;
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: rotate 20s linear infinite;
 }
 
 @keyframes rotate {
-0% { transform: rotate(0deg); }
-100% { transform: rotate(360deg); }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .game-info {
-padding: 25px;
+  padding: 25px;
 }
 
 .game-title {
-font-size: 1.8em;
-color: #333;
-margin-bottom: 10px;
-font-weight: bold;
+  font-size: 1.8em;
+  color: #333;
+  margin-bottom: 10px;
+  font-weight: bold;
 }
 
 .game-description {
-color: #666;
-font-size: 1em;
-line-height: 1.6;
-margin-bottom: 15px;
+  color: #666;
+  font-size: 1em;
+  line-height: 1.6;
+  margin-bottom: 15px;
 }
 
 .game-meta {
-display: flex;
-justify-content: space-between;
-align-items: center;
-margin-top: 15px;
-padding-top: 15px;
-border-top: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
 }
 
 .game-difficulty {
-padding: 5px 15px;
-border-radius: 20px;
-font-size: 0.9em;
-font-weight: bold;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-size: 0.9em;
+  font-weight: bold;
 }
 
 .difficulty-easy {
-background: #4CAF50;
-color: white;
+  background: #4CAF50;
+  color: white;
 }
 
 .difficulty-medium {
-background: #FF9800;
-color: white;
+  background: #FF9800;
+  color: white;
 }
 
 .difficulty-hard {
-background: #f44336;
-color: white;
+  background: #f44336;
+  color: white;
 }
 
 .play-button {
-background: linear-gradient(135deg, #667eea, #764ba2);
-color: white;
-border: none;
-padding: 10px 25px;
-border-radius: 25px;
-font-size: 1em;
-font-weight: bold;
-cursor: pointer;
-transition: transform 0.2s ease;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  padding: 10px 25px;
+  border-radius: 25px;
+  font-size: 1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s ease;
 }
 
 .play-button:hover {
-transform: scale(1.05);
+  transform: scale(1.05);
 }
 
 .play-button:active {
-transform: scale(0.98);
+  transform: scale(0.98);
 }
 
 .category-filter {
-display: flex;
-justify-content: center;
-gap: 15px;
-margin: 30px 0;
-flex-wrap: wrap;
-animation: fadeIn 1s ease;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin: 30px 0;
+  flex-wrap: wrap;
+  animation: fadeIn 1s ease;
 }
 
 .filter-btn {
-padding: 10px 25px;
-background: rgba(255, 255, 255, 0.2);
-border: 2px solid white;
-color: white;
-border-radius: 25px;
-font-size: 1em;
-cursor: pointer;
-transition: all 0.3s ease;
-backdrop-filter: blur(10px);
+  padding: 10px 25px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  color: white;
+  border-radius: 25px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
 }
 
 .filter-btn:hover, .filter-btn.active {
-background: white;
-color: #667eea;
-transform: scale(1.05);
+  background: white;
+  color: #667eea;
+  transform: scale(1.05);
 }
 
 .stats {
-display: flex;
-justify-content: center;
-gap: 40px;
-margin: 40px 0;
-flex-wrap: wrap;
-animation: fadeIn 1.4s ease;
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin: 40px 0;
+  flex-wrap: wrap;
+  animation: fadeIn 1.4s ease;
 }
 
 .stat-item {
-background: rgba(255, 255, 255, 0.2);
-backdrop-filter: blur(10px);
-padding: 20px 40px;
-border-radius: 15px;
-color: white;
-text-align: center;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  padding: 20px 40px;
+  border-radius: 15px;
+  color: white;
+  text-align: center;
 }
 
 .stat-number {
-font-size: 2.5em;
-font-weight: bold;
-display: block;
+  font-size: 2.5em;
+  font-weight: bold;
+  display: block;
 }
 
 .stat-label {
-font-size: 1em;
-opacity: 0.9;
+  font-size: 1em;
+  opacity: 0.9;
 }
 
 footer {
-text-align: center;
-margin-top: 60px;
-padding: 30px;
-color: white;
-font-size: 0.9em;
-opacity: 0.8;
+  text-align: center;
+  margin-top: 60px;
+  padding: 30px;
+  color: white;
+  font-size: 0.9em;
+  opacity: 0.8;
 }
 
 @keyframes fadeIn {
-from { opacity: 0; }
-to { opacity: 1; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes fadeInDown {
-from { opacity: 0; transform: translateY(-30px); }
-to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeInUp {
-from { opacity: 0; transform: translateY(30px); }
-to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 768px) {
-h1 { font-size: 2.5em; }
-.games-grid { grid-template-columns: 1fr; }
-.stats { gap: 20px; }
+  h1 { font-size: 2.5em; }
+  .games-grid { grid-template-columns: 1fr; }
+  .stats { gap: 20px; }
 }
 </style>
 </head>
 <body>
 <div class="container">
-<header>
-<h1>🎮 Herní portál 🎮</h1>
-<p class="subtitle">15 úžasných her zdarma!</p>
-</header>
+  <header>
+    <h1>🎮 Herní portál 🎮</h1>
+    <p class="subtitle">25 nejlepších her všech dob!</p>
+  </header>
 
-<div class="stats">
-<div class="stat-item">
-<span class="stat-number" id="totalGames">15</span>
-<span class="stat-label">Celkem her</span>
-</div>
-<div class="stat-item">
-<span class="stat-number">100%</span>
-<span class="stat-label">Zdarma</span>
-</div>
-<div class="stat-item">
-<span class="stat-number">∞</span>
-<span class="stat-label">Herní zábava</span>
-</div>
-</div>
+  <div class="stats">
+    <div class="stat-item">
+      <span class="stat-number" id="totalGames">25</span>
+      <span class="stat-label">Celkem her</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number">100%</span>
+      <span class="stat-label">Zdarma</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number">∞</span>
+      <span class="stat-label">Herní zábava</span>
+    </div>
+  </div>
 
-<div class="search-bar">
-<input type="text" id="searchInput" placeholder="Hledat hry...">
-</div>
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Hledat hry...">
+  </div>
 
-<div class="category-filter">
-<button class="filter-btn active" data-category="all">🎯 Všechny hry</button>
-<button class="filter-btn" data-category="arcade">🕹️ Arkády</button>
-<button class="filter-btn" data-category="puzzle">🧩 Logické</button>
-<button class="filter-btn" data-category="action">⚡ Akční</button>
-<button class="filter-btn" data-category="casual">😊 Casual</button>
-</div>
+  <div class="category-filter">
+    <button class="filter-btn active" data-category="all">🎯 Všechny hry</button>
+    <button class="filter-btn" data-category="arcade">🕹️ Arkády</button>
+    <button class="filter-btn" data-category="puzzle">🧩 Logické</button>
+    <button class="filter-btn" data-category="action">⚡ Akční</button>
+    <button class="filter-btn" data-category="casual">😊 Casual</button>
+    <button class="filter-btn" data-category="sport">⚽ Sport</button>
+    <button class="filter-btn" data-category="racing">🏎️ Závody</button>
+  </div>
 
-<div class="games-grid" id="gamesGrid"></div>
+  <div class="games-grid" id="gamesGrid"></div>
 
-<footer>
-<p>© 2024 Herní portál | Všechna práva vyhrazena</p>
-<p>Vytvořeno s ❤️ pro milovníky her</p>
-</footer>
+  <footer>
+    <p>© 2024 Herní portál | Všechna práva vyhrazena</p>
+    <p>Vytvořeno s ❤️ pro milovníky her</p>
+  </footer>
 </div>
 
 <script>
 const games = [
-{id: 1, title: "Skákací hra - Classic", description: "Jednoduchá a zábavná skákací hra. Přeskakujte překážky!", icon: "🏃", difficulty: "easy", category: "arcade", file: "jumping_game_v1.html", color: "#4CAF50"},
-{id: 2, title: "Super Skákací hra", description: "Pokročilá verze s životy, mincemi a stoupající obtížností!", icon: "🎮", difficulty: "medium", category: "arcade", file: "jumping_game_v2.html", color: "#FF9800"},
-{id: 3, title: "Space Defender", description: "FPS střílečka! Bráňte základnu před vlnami nepřátel.", icon: "🚀", difficulty: "medium", category: "action", file: "space_shooter_fps.html", color: "#00ff00"},
-{id: 4, title: "Gorilla Tower", description: "Vyšplhejte na vrchol budovy! Inspirováno Wreck-it Ralph.", icon: "🦍", difficulty: "medium", category: "arcade", file: "gorilla_tower_game.html", color: "#8B4513"},
-{id: 5, title: "Skákací hra s pandou", description: "Panda skáče přes ovečky a má 23 životů.", icon: "🐼", difficulty: "easy", category: "arcade", file: "hra_skakani_pokrocila_V2.html", color: "#275EF5"},
-{id: 6, title: "Match-3 Candy", description: "Barevná Match-3 hra! Spojuj bonbóny proti času.", icon: "🍬", difficulty: "easy", category: "casual", file: "match3-candy.html", color: "#FF6B9D"},
-{id: 7, title: "Brick Breaker Extreme", description: "Klasická arkáda! Rozbicej cihly a sbírej power-upy.", icon: "🧱", difficulty: "medium", category: "arcade", file: "brick-breaker.html", color: "#7e22ce"},
-{id: 8, title: "Mastermind Colors", description: "Logická hra! Uhádni tajnou kombinaci barev.", icon: "🎨", difficulty: "medium", category: "puzzle", file: "mastermind-colors.html", color: "#667eea"},
-{id: 9, title: "Turbo Racer", description: "Závodní hra! Vyhýbej se autům a sbírej mince.", icon: "🏎️", difficulty: "medium", category: "action", file: "turbo-racer.html", color: "#FF4500"},
-{id: 10, title: "Memory Cards", description: "Pexeso s časovým limitem! Trénuj svou paměť.", icon: "🧠", difficulty: "easy", category: "casual", file: "memory-cards.html", color: "#FF1493"},
-{id: 11, title: "2048 Plus", description: "Návyková logická hra! Dosáhni čísla 2048.", icon: "2️⃣", difficulty: "medium", category: "puzzle", file: "2048-plus.html", color: "#776e65"},
-{id: 12, title: "Snake Classic", description: "Klasický had! Sněz jídlo a nesraz se do sebe.", icon: "🐍", difficulty: "easy", category: "arcade", file: "snake-classic.html", color: "#00FF00"},
-{id: 13, title: "Tetris Classic", description: "Legendární Tetris! Skládej bloky a maz řádky.", icon: "🎮", difficulty: "medium", category: "puzzle", file: "tetris-classic.html", color: "#3498db"},
-{id: 14, title: "Flappy Bird", description: "Kultovní Flappy Bird! Proletuj mezi trubkami.", icon: "🐦", difficulty: "hard", category: "casual", file: "flappy-bird.html", color: "#FFD700"},
-{id: 15, title: "Space Invaders", description: "Retro klasika! Zničte všechny invadery z vesmíru.", icon: "👾", difficulty: "medium", category: "action", file: "space-invaders.html", color: "#00FF00"}
+  {id: 1, title: "Skákací hra - Classic", description: "Jednoduchá skákačka. Přeskakujte překážky!", icon: "🏃", difficulty: "easy", category: "arcade", file: "jumping_game_v1.html", color: "#4CAF50"},
+  {id: 2, title: "Super Skákací hra", description: "Pokročilá verze s životy a mincemi!", icon: "🎮", difficulty: "medium", category: "arcade", file: "jumping_game_v2.html", color: "#FF9800"},
+  {id: 3, title: "Space Defender", description: "FPS střílečka proti nepřátelům z vesmíru!", icon: "🚀", difficulty: "medium", category: "action", file: "space_shooter_fps.html", color: "#00ff00"},
+  {id: 4, title: "Gorilla Tower", description: "Vyšplhej na vrchol budovy!", icon: "🦍", difficulty: "medium", category: "arcade", file: "gorilla_tower_game.html", color: "#8B4513"},
+  {id: 5, title: "Skákací hra s pandou", description: "Panda skáče přes ovečky.", icon: "🐼", difficulty: "easy", category: "arcade", file: "hra_skakani_pokrocila_V2.html", color: "#275EF5"},
+  {id: 6, title: "Match-3 Candy", description: "Spojuj bonbóny proti času!", icon: "🍬", difficulty: "easy", category: "casual", file: "match3-candy.html", color: "#FF6B9D"},
+  {id: 7, title: "Brick Breaker Extreme", description: "Rozbicej všechny cihly!", icon: "🧱", difficulty: "medium", category: "arcade", file: "brick-breaker.html", color: "#7e22ce"},
+  {id: 8, title: "Mastermind Colors", description: "Uhádni tajnou kombinaci barev!", icon: "🎨", difficulty: "medium", category: "puzzle", file: "mastermind-colors.html", color: "#667eea"},
+  {id: 9, title: "Turbo Racer", description: "Vyhýbej se autům a sbírej mince!", icon: "🏎️", difficulty: "medium", category: "racing", file: "turbo-racer.html", color: "#FF4500"},
+  {id: 10, title: "Memory Cards", description: "Pexeso s časovým limitem!", icon: "🧠", difficulty: "easy", category: "casual", file: "memory-cards.html", color: "#FF1493"},
+  {id: 11, title: "2048 Plus", description: "Dosáhni legendárního čísla 2048!", icon: "2️⃣", difficulty: "medium", category: "puzzle", file: "2048-plus.html", color: "#776e65"},
+  {id: 12, title: "Snake Classic", description: "Klasický had! Nesraz se do sebe!", icon: "🐍", difficulty: "easy", category: "arcade", file: "snake-classic.html", color: "#00FF00"},
+  {id: 13, title: "Tetris Classic", description: "Legendární Tetris! Skládej bloky!", icon: "🎮", difficulty: "medium", category: "puzzle", file: "tetris-classic.html", color: "#3498db"},
+  {id: 14, title: "Flappy Bird", description: "Kultovní Flappy Bird! Proletuj trubkami!", icon: "🐦", difficulty: "hard", category: "casual", file: "flappy-bird.html", color: "#FFD700"},
+  {id: 15, title: "Space Invaders", description: "Retro klasika! Zničte invadery!", icon: "👾", difficulty: "medium", category: "action", file: "space-invaders.html", color: "#00FF00"},
+  {id: 16, title: "Air Combat", description: "Letecký souboj! Sestřelte nepřátele!", icon: "✈️", difficulty: "medium", category: "action", file: "air-combat.html", color: "#FF4500"},
+  {id: 17, title: "Formula Racing", description: "Závody formule! Dojeď 3 kola!", icon: "🏎️", difficulty: "medium", category: "racing", file: "formula-racing.html", color: "#FF0000"},
+  {id: 18, title: "Penalty Kick", description: "Fotbalové penalty! Střílej góly!", icon: "⚽", difficulty: "easy", category: "sport", file: "penalty-kick.html", color: "#2ECC40"},
+  {id: 19, title: "Tennis Champion", description: "Klasický tenis! První na 5 bodů!", icon: "🎾", difficulty: "easy", category: "sport", file: "tennis-champion.html", color: "#228B22"},
+  {id: 20, title: "Pac-Man Retro", description: "Legendární Pac-Man! Sněz všechny tečky!", icon: "👻", difficulty: "medium", category: "arcade", file: "pacman-retro.html", color: "#FFD700"},
+  {id: 21, title: "Bomberman", description: "Klasický Bomberman! Ničte zdi bombami!", icon: "💣", difficulty: "medium", category: "action", file: "bomberman.html", color: "#FF6347"},
+  {id: 22, title: "Breakout Deluxe", description: "Vylepšený Breakout s power-upy!", icon: "🎯", difficulty: "medium", category: "arcade", file: "breakout-deluxe.html", color: "#4169E1"},
+  {id: 23, title: "Doodle Jump", description: "Skákej co nejvýše! Vyhni se překážkám!", icon: "🦘", difficulty: "easy", category: "casual", file: "doodle-jump.html", color: "#7CFC00"},
+  {id: 24, title: "Minesweeper Pro", description: "Klasické hledání min! Buď opatrný!", icon: "💥", difficulty: "hard", category: "puzzle", file: "minesweeper-pro.html", color: "#808080"},
+  {id: 25, title: "Asteroids", description: "Retro klasika! Ničte asteroidy!", icon: "☄️", difficulty: "medium", category: "action", file: "asteroids.html", color: "#1E90FF"}
 ];
 
 function renderGames(gamesToRender = games) {
-const gamesGrid = document.getElementById('gamesGrid');
-gamesGrid.innerHTML = '';
+  const gamesGrid = document.getElementById('gamesGrid');
+  gamesGrid.innerHTML = '';
 
-gamesToRender.forEach((game, index) => {
-const card = document.createElement('div');
-card.className = 'game-card';
-card.style.animationDelay = `${index * 0.1}s`;
+  gamesToRender.forEach((game, index) => {
+    const card = document.createElement('div');
+    card.className = 'game-card';
+    card.style.animationDelay = `${index * 0.05}s`;
 
-const difficultyClass = `difficulty-${game.difficulty}`;
-const difficultyText = {
-easy: '😊 Snadná',
-medium: '😐 Střední',
-hard: '😰 Těžká'
-};
+    const difficultyClass = `difficulty-${game.difficulty}`;
+    const difficultyText = {
+      easy: '😊 Snadná',
+      medium: '😐 Střední',
+      hard: '😰 Těžká'
+    };
 
-card.innerHTML = `
-<div class="game-thumbnail" style="background: linear-gradient(135deg, ${game.color}, ${game.color}99);">
-${game.icon}
-</div>
-<div class="game-info">
-<div class="game-title">${game.title}</div>
-<div class="game-description">${game.description}</div>
-<div class="game-meta">
-<span class="game-difficulty ${difficultyClass}">${difficultyText[game.difficulty]}</span>
-<button class="play-button" onclick="playGame('${game.file}')">▶️ Hrát</button>
-</div>
-</div>
-`;
+    card.innerHTML = `
+      <div class="game-thumbnail" style="background: linear-gradient(135deg, ${game.color}, ${game.color}99);">
+        ${game.icon}
+      </div>
+      <div class="game-info">
+        <div class="game-title">${game.title}</div>
+        <div class="game-description">${game.description}</div>
+        <div class="game-meta">
+          <span class="game-difficulty ${difficultyClass}">${difficultyText[game.difficulty]}</span>
+          <button class="play-button" onclick="playGame('${game.file}')">▶️ Hrát</button>
+        </div>
+      </div>
+    `;
 
-gamesGrid.appendChild(card);
-});
+    gamesGrid.appendChild(card);
+  });
 
-document.getElementById('totalGames').textContent = gamesToRender.length;
+  document.getElementById('totalGames').textContent = gamesToRender.length;
 }
 
 function playGame(filename) {
-window.location.href = filename;
+  window.location.href = filename;
 }
 
-document.getElementById('searchInput').addEventListener('input', (e) => {
-const searchTerm = e.target.value.toLowerCase();
-const filtered = games.filter(game => 
-game.title.toLowerCase().includes(searchTerm) ||
-game.description.toLowerCase().includes(searchTerm)
-);
-renderGames(filtered);
-});
+const searchInput = document.getElementById('searchInput');
+if (searchInput) {
+  searchInput.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    const filtered = games.filter(game =>
+      game.title.toLowerCase().includes(searchTerm) ||
+      game.description.toLowerCase().includes(searchTerm)
+    );
+    renderGames(filtered);
+  });
+}
 
 document.querySelectorAll('.filter-btn').forEach(btn => {
-btn.addEventListener('click', (e) => {
-document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-e.target.classList.add('active');
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    e.currentTarget.classList.add('active');
 
-const category = e.target.dataset.category;
-if (category === 'all') {
-renderGames(games);
-} else {
-const filtered = games.filter(game => game.category === category);
-renderGames(filtered);
-}
-});
+    const category = e.currentTarget.dataset.category;
+    if (category === 'all') {
+      renderGames(games);
+    } else {
+      const filtered = games.filter(game => game.category === category);
+      renderGames(filtered);
+    }
+  });
 });
 
 renderGames();
