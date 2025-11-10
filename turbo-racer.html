@@ -120,6 +120,62 @@
             text-shadow: 0 0 10px #00FF00;
             font-weight: bold;
         }
+        #leaderboard {
+            margin-top: 20px;
+            background: rgba(10, 10, 30, 0.85);
+            border: 3px solid #FFD700;
+            border-radius: 15px;
+            padding: 20px;
+            color: #FFD700;
+            width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+        }
+        #leaderboard h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #FF4500;
+        }
+        #leaderboard ol {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            text-align: left;
+        }
+        #leaderboard li {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            background: rgba(255, 69, 0, 0.2);
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        #leaderboard li span {
+            color: #FFFFFF;
+        }
+        #saveScore {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+        #playerName {
+            padding: 10px 15px;
+            font-size: 18px;
+            border-radius: 10px;
+            border: 2px solid #FFD700;
+            text-align: center;
+            width: 220px;
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        #saveMessage {
+            font-size: 18px;
+            color: #00FF7F;
+            min-height: 24px;
+        }
     </style>
 </head>
 <body>
@@ -141,15 +197,24 @@
                 🏁 Ujetá vzdálenost: <span id="finalDistance">0</span>m<br>
                 ⭐ Dosažený level: <span id="finalLevel">1</span>
             </div>
+            <div id="saveScore">
+                <input id="playerName" type="text" maxlength="20" placeholder="Tvé jméno" autocomplete="off">
+                <button id="saveButton" onclick="saveResult()">💾 ULOŽIT VÝSLEDEK</button>
+                <div id="saveMessage"></div>
+            </div>
             <button onclick="restart()">🔄 ZKUSIT ZNOVU</button>
             <button onclick="goHome()">🏠 MENU</button>
         </div>
-        
+
         <div id="paused">
             <h2>⏸️ PAUZA</h2>
             <button onclick="togglePause()">▶️ POKRAČOVAT</button>
             <button onclick="restart()">🔄 RESTART</button>
             <button onclick="goHome()">🏠 MENU</button>
+        </div>
+        <div id="leaderboard">
+            <h3>🏆 TOP 10 UJETÁ VZDÁLENOST</h3>
+            <ol id="leaderboardList"></ol>
         </div>
     </div>
 
@@ -164,6 +229,10 @@
         let level = 1;
         let speed = 5;
         let maxSpeed = 15;
+        let lastTimestamp = null;
+
+        const HIGH_SCORES_KEY = 'turboRacerHighScores';
+        let highScores = loadHighScores();
         
         // Hráčovo auto
         const player = {
@@ -214,11 +283,96 @@
                 ctx.globalAlpha = 1;
             }
         }
-        
+
+        function loadHighScores() {
+            try {
+                const stored = localStorage.getItem(HIGH_SCORES_KEY);
+                if (!stored) return [];
+                const parsed = JSON.parse(stored);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+                console.error('Chyba při načítání výsledků:', error);
+                return [];
+            }
+        }
+
+        function saveHighScores() {
+            localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(highScores));
+        }
+
+        const formatNumber = (value) => {
+            return Number.isFinite(value) ? value.toLocaleString('cs-CZ') : value;
+        };
+
+        function renderHighScores() {
+            const list = document.getElementById('leaderboardList');
+            if (!list) return;
+            list.innerHTML = '';
+            if (highScores.length === 0) {
+                const emptyItem = document.createElement('li');
+                emptyItem.textContent = 'Zatím žádné uložené výsledky.';
+                emptyItem.style.justifyContent = 'center';
+                emptyItem.style.color = '#FFFFFF';
+                list.appendChild(emptyItem);
+                return;
+            }
+            highScores.forEach((entry, index) => {
+                const item = document.createElement('li');
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = `${index + 1}. ${entry.name}`;
+                const resultSpan = document.createElement('span');
+                resultSpan.textContent = `${formatNumber(entry.distance)} m | Skóre ${formatNumber(entry.score)}`;
+                item.appendChild(nameSpan);
+                item.appendChild(resultSpan);
+                list.appendChild(item);
+            });
+        }
+
+        function saveResult() {
+            if (gameRunning) return;
+            const nameInput = document.getElementById('playerName');
+            const message = document.getElementById('saveMessage');
+            const saveButton = document.getElementById('saveButton');
+            if (!nameInput || !message || !saveButton) return;
+
+            if (saveButton.disabled) {
+                message.textContent = 'Výsledek už je uložený.';
+                return;
+            }
+
+            const name = nameInput.value.trim() || 'Bez jména';
+            const entry = {
+                name,
+                score,
+                distance: Math.round(distance),
+                level,
+                savedAt: Date.now()
+            };
+
+            highScores.push(entry);
+            highScores.sort((a, b) => {
+                if (b.distance === a.distance) {
+                    if (b.score === a.score) {
+                        return a.savedAt - b.savedAt;
+                    }
+                    return b.score - a.score;
+                }
+                return b.distance - a.distance;
+            });
+            highScores = highScores.slice(0, 10);
+            saveHighScores();
+            renderHighScores();
+
+            message.textContent = 'Výsledek uložen!';
+            saveButton.disabled = true;
+        }
+
+        renderHighScores();
+
         function createEnemy() {
             const lane = Math.floor(Math.random() * 3);
             const x = 100 + lane * 150;
-            
+
             enemies.push({
                 x: x,
                 y: -100,
@@ -417,10 +571,11 @@
             }
         }
         
-        function updateDistance() {
-            distance += Math.floor(speed / 10);
-            document.getElementById('distance').textContent = distance;
-            
+        function updateDistance(deltaTime) {
+            const metersPerSecond = (speed * 20) / 3.6;
+            distance += metersPerSecond * deltaTime;
+            document.getElementById('distance').textContent = formatNumber(Math.round(distance));
+
             // Zvýšení levelu a rychlosti
             const newLevel = Math.floor(distance / 500) + 1;
             if (newLevel > level) {
@@ -433,27 +588,27 @@
         }
         
         function updateScore() {
-            document.getElementById('score').textContent = score;
+            document.getElementById('score').textContent = formatNumber(score);
         }
         
         function updateSpeed() {
-            document.getElementById('speed').textContent = Math.floor(speed * 20);
+            document.getElementById('speed').textContent = formatNumber(Math.floor(speed * 20));
         }
         
         let frameCount = 0;
         
-        function update() {
+        function update(deltaTime) {
             if (!gameRunning || paused) return;
-            
+
             frameCount++;
-            
+
             updatePlayer();
             updateEnemies();
             updateCoins();
             updateParticles();
-            updateDistance();
+            updateDistance(deltaTime);
             updateSpeed();
-            
+
             // Spawn nepřátel
             if (frameCount % Math.max(60 - level * 5, 30) === 0) {
                 createEnemy();
@@ -473,8 +628,14 @@
             drawParticles();
         }
         
-        function gameLoop() {
-            update();
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) {
+                lastTimestamp = timestamp;
+            }
+            const deltaTime = Math.min((timestamp - lastTimestamp) / 1000, 0.1);
+            lastTimestamp = timestamp;
+
+            update(deltaTime);
             draw();
             if (gameRunning) {
                 requestAnimationFrame(gameLoop);
@@ -483,20 +644,33 @@
         
         function endGame() {
             gameRunning = false;
-            document.getElementById('finalScore').textContent = score;
-            document.getElementById('finalDistance').textContent = distance;
+            document.getElementById('finalScore').textContent = formatNumber(score);
+            document.getElementById('finalDistance').textContent = formatNumber(Math.round(distance));
             document.getElementById('finalLevel').textContent = level;
             document.getElementById('gameOver').style.display = 'block';
+            const saveButton = document.getElementById('saveButton');
+            const saveMessage = document.getElementById('saveMessage');
+            if (saveButton) {
+                saveButton.disabled = false;
+            }
+            if (saveMessage) {
+                saveMessage.textContent = '';
+            }
+            const nameInput = document.getElementById('playerName');
+            if (nameInput) {
+                nameInput.value = '';
+                nameInput.focus();
+            }
         }
-        
+
         function togglePause() {
             paused = !paused;
             document.getElementById('paused').style.display = paused ? 'block' : 'none';
             if (!paused) {
-                gameLoop();
+                lastTimestamp = null;
             }
         }
-        
+
         function restart() {
             score = 0;
             distance = 0;
@@ -509,17 +683,26 @@
             player.x = canvas.width / 2 - 25;
             gameRunning = true;
             paused = false;
-            
+            lastTimestamp = null;
+
             document.getElementById('gameOver').style.display = 'none';
             document.getElementById('paused').style.display = 'none';
-            
+
             updateScore();
-            document.getElementById('distance').textContent = '0';
+            document.getElementById('distance').textContent = formatNumber(0);
             document.getElementById('level').textContent = '1';
-            
-            gameLoop();
+            const saveMessage = document.getElementById('saveMessage');
+            const saveButton = document.getElementById('saveButton');
+            if (saveMessage) {
+                saveMessage.textContent = '';
+            }
+            if (saveButton) {
+                saveButton.disabled = false;
+            }
+
+            requestAnimationFrame(gameLoop);
         }
-        
+
         function goHome() {
             window.location.href = 'index.html';
         }
@@ -551,7 +734,10 @@
         }, 16);
         
         // Start
-        gameLoop();
+        updateScore();
+        updateSpeed();
+        document.getElementById('distance').textContent = formatNumber(0);
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
