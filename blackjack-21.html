@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Blackjack 21</title>
+<style>
+  body{margin:0;background:#053;color:#fff;font-family:Segoe UI,Arial}
+  .table{max-width:900px;margin:20px auto;background:#074;padding:20px;border-radius:16px;box-shadow:0 20px 60px #0006}
+  h1{text-align:center;margin:0 0 10px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .hand{min-height:130px;display:flex;gap:10px;align-items:center;justify-content:center;margin:14px 0}
+  .card{width:70px;height:100px;border-radius:8px;background:#fff;color:#000;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 8px 20px #0006}
+  .controls{display:flex;gap:10px;justify-content:center;margin-top:10px}
+  button{padding:10px 16px;border:0;border-radius:10px;background:#ffd54f;color:#222;font-weight:800;cursor:pointer}
+  .stat{text-align:center}
+</style></head><body>
+<div class="table">
+  <h1>🃏 Blackjack 21</h1>
+  <div class="stat">Kredity: <b id="bank">100</b> | Sázka: <b id="bet">10</b></div>
+  <div class="row"><div>Dealer:</div><div class="hand" id="dealer"></div></div>
+  <div class="row"><div>Hráč:</div><div class="hand" id="player"></div></div>
+  <div class="controls">
+    <button id="deal">🎲 Rozdat</button>
+    <button id="hit" disabled>➕ Karta</button>
+    <button id="stand" disabled>✋ Stát</button>
+    <button id="betminus">− Sázka</button>
+    <button id="betplus">+ Sázka</button>
+  </div>
+</div>
+<script>
+let deck=[],player=[],dealer=[],bank=100,bet=10; const bankEl=b=document.getElementById('bank'); const betEl=document.getElementById('bet');
+const dEl=document.getElementById('dealer'), pEl=document.getElementById('player');
+function newDeck(){const s='♠♥♦♣'.split(''), r=['A','2','3','4','5','6','7','8','9','10','J','Q','K']; deck=[]; s.forEach(S=>r.forEach(R=>deck.push(R+S))); deck.sort(()=>Math.random()-0.5);}
+function val(hand){let sum=0, aces=0; hand.forEach(c=>{let r=c.slice(0,-1); if(r==='A'){aces++; sum+=11;} else if(['J','Q','K'].includes(r)) sum+=10; else sum+=Number(r);}); while(sum>21&&aces){sum-=10;aces--;} return sum;}
+function render(){ dEl.innerHTML=''; pEl.innerHTML=''; dealer.forEach((c,i)=>addCard(dEl,c,(i===1 && hideDealer))); player.forEach(c=>addCard(pEl,c)); bankEl.textContent=bank; betEl.textContent=bet;}
+function addCard(parent,card,hidden=false){const e=document.createElement('div'); e.className='card'; e.textContent=hidden?'🂠':card; parent.appendChild(e);}
+let inRound=false, hideDealer=false;
+function deal(){ if(inRound) return; if(deck.length<15) newDeck(); inRound=true; hideDealer=true; player=[deck.pop(),deck.pop()]; dealer=[deck.pop(),deck.pop()]; render(); toggle(true);
+  if(val(player)===21){stand();}}
+function hit(){ player.push(deck.pop()); render(); if(val(player)>21){ end('Přes! Prohra.'); }}
+function stand(){ hideDealer=false; render(); while(val(dealer)<17) { dealer.push(deck.pop()); render(); }
+  const pv=val(player), dv=val(dealer);
+  if(dv>21 || pv>dv) end('Výhra!'); else if(pv<dv) end('Prohra.'); else end('Remíza.');}
+function end(msg){ setTimeout(()=>alert(msg),50); if(msg.includes('Výhra')) bank+=bet; else if(msg.includes('Prohra')) bank-=bet; inRound=false; toggle(false); render(); }
+function toggle(play){document.getElementById('hit').disabled=!play; document.getElementById('stand').disabled=!play;}
+document.getElementById('deal').onclick=deal; document.getElementById('hit').onclick=hit; document.getElementById('stand').onclick=stand;
+document.getElementById('betminus').onclick=()=>{bet=Math.max(5,bet-5); render();}; document.getElementById('betplus').onclick=()=>{bet=Math.min(bank,bet+5); render();};
+newDeck(); render();
+</script></body></html>
